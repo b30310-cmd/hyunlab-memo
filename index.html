@@ -329,11 +329,32 @@
         <p class="sub">설치 없이 웹에서 쓰거나, 프로그램으로 설치해 더 편하게 사용하세요.</p>
         <div class="cta">
           <a class="btn btn-primary" href="./app/">웹에서 사용하기</a>
-          <a class="btn btn-secondary" href="https://github.com/b30310-cmd/hyunlab-memo/releases/download/v1.0.0/HYUNLAB-Memo-Setup-1.0.0.exe" download>
+          <!--
+            /releases/latest/download/<파일명> 은 GitHub이 항상 "가장 최근에 발행된
+            Release"의 동일한 이름을 가진 첨부 파일로 안내해주는 고정 주소입니다.
+            새 버전을 Release로 올릴 때 아래 두 파일명(HyunLabMemo_Setup.exe /
+            HyunLabMemo_Portable.exe)을 그대로 유지하면, 이 링크는 코드를 다시
+            고치지 않아도 항상 최신 설치 파일을 내려받습니다.
+          -->
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/b30310-cmd/hyunlab-memo/releases/latest/download/HyunLabMemo_Setup.exe"
+            download
+          >
             ⬇ Windows 설치 파일 (.exe)
           </a>
         </div>
-        <p class="os">Windows 10 / 11 (64bit) · 용량 약 80MB · 무료</p>
+        <p class="os">Windows 10 / 11 (64bit) · 무료</p>
+        <p class="os">
+          설치가 번거로우면
+          <a
+            href="https://github.com/b30310-cmd/hyunlab-memo/releases/latest/download/HyunLabMemo_Portable.exe"
+            download
+            style="color: var(--brand); font-weight: 600"
+            >Portable 버전(.exe, 설치 없이 바로 실행)</a
+          >
+          도 받을 수 있습니다.
+        </p>
 
         <!--
           설치할 때 Windows SmartScreen 경고가 반드시 뜹니다.
@@ -354,6 +375,6 @@
       </div>
     </section>
 
-    <footer>© HYUNLAB · HYUNLAB Memo v1.0.0</footer>
+    <footer>© HYUNLAB · HYUNLAB Memo v1.1.0</footer>
   </body>
 </html>
