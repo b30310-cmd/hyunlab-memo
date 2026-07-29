@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HYUNLAB Memo — 필요한 순간 바로 꺼내 쓰는 메모</title>
+    <meta name="description" content="Windows 스티커 메모보다 편한 무료 메모앱. 팝업 메모, 체크리스트, 일정 알림, 자동 저장. Windows 10/11 지원." />
+    <link rel="icon" href="./icon.svg" />
+
+    <!-- 카카오톡·페이스북 등에 링크를 공유할 때 보이는 정보 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="HYUNLAB Memo — 필요한 순간 바로 꺼내 쓰는 메모" />
+    <meta property="og:description" content="Windows 스티커 메모보다 편한 무료 메모앱. 팝업 메모, 체크리스트, 일정 알림, 자동 저장." />
+    <meta property="og:image" content="./icon.png" />
+    <meta name="twitter:card" content="summary" />
+    <link
+      rel="stylesheet"
+      as="style"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+    />
+    <style>
+      /* ============================================================
+         HYUNLAB Memo 소개 페이지
+         - HYUNLAB 사이트에 그대로 붙여 넣거나 이 파일을 배포하세요.
+         ============================================================ */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --brand: #4f46e5;
+        --brand-soft: #eef2ff;
+        --text: #18181b;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --bg: #ffffff;
+        --card: #fafafa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --text: #f4f4f5; --muted: #a1a1aa; --line: #27272a;
+          --bg: #0f0f11; --card: #18181b; --brand-soft: #1e1b4b;
+        }
+      }
+      body {
+        font-family: 'Pretendard', system-ui, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+      /* 헤더 */
+      header {
+        position: sticky; top: 0; z-index: 10;
+        background: color-mix(in srgb, var(--bg) 85%, transparent);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--line);
+      }
+      .nav { display: flex; align-items: center; gap: 10px; height: 62px; }
+      .logo {
+        width: 30px; height: 30px; border-radius: 9px; background: var(--brand);
+        color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 15px;
+      }
+      .brand-name { font-weight: 700; }
+
+      /* 히어로 */
+      .hero { padding: 72px 0 48px; text-align: center; }
+      .badge {
+        display: inline-block; padding: 5px 12px; border-radius: 999px;
+        background: var(--brand-soft); color: var(--brand);
+        font-size: 13px; font-weight: 600; margin-bottom: 20px;
+      }
+      h1 { font-size: clamp(32px, 5vw, 52px); letter-spacing: -0.03em; line-height: 1.2; }
+      .tagline { margin-top: 14px; font-size: clamp(16px, 2vw, 19px); color: var(--muted); }
+
+      .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 13px 26px; border-radius: 14px; font-weight: 600; font-size: 15px;
+        text-decoration: none; border: 1px solid transparent; transition: transform .12s ease, box-shadow .12s ease;
+      }
+      .btn:hover { transform: translateY(-1px); }
+      .btn-primary {
+        background: var(--brand); color: #fff;
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.28);
+      }
+      .btn-secondary { background: var(--card); color: var(--text); border-color: var(--line); }
+
+      /* 메타 정보 (별점/무료/지원) */
+      .meta {
+        display: flex; gap: 22px; justify-content: center; flex-wrap: wrap;
+        margin-top: 26px; font-size: 14px; color: var(--muted);
+      }
+      .stars { color: #f59e0b; letter-spacing: 2px; }
+
+      /* 히어로 대표 스크린샷 */
+      .hero-shot {
+        margin: 56px auto 0; max-width: 940px; border-radius: 16px; overflow: hidden;
+        border: 1px solid var(--line); background: var(--card);
+        box-shadow: 0 24px 70px rgba(0,0,0,.13);
+      }
+      .hero-shot img { display: block; width: 100%; height: auto; }
+
+      /* 스크린샷 갤러리 */
+      .gallery {
+        margin-top: 44px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 28px;
+      }
+      .gallery figure {
+        border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+        background: var(--card); box-shadow: 0 6px 20px rgba(0,0,0,.06);
+        transition: transform .18s ease, box-shadow .18s ease;
+      }
+      .gallery figure:hover {
+        transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0,0,0,.11);
+      }
+      .gallery img { display: block; width: 100%; height: auto; }
+      .gallery figcaption {
+        padding: 14px 16px; font-size: 13px; color: var(--muted);
+        border-top: 1px solid var(--line); line-height: 1.6;
+      }
+      .gallery figcaption b { color: var(--text); display: block; margin-bottom: 2px; font-size: 14px; }
+      /* 팝업 메모는 세로로 길쭉해서 한 줄 전체를 쓰고 가운데에 놓습니다 */
+      .gallery figure.tall {
+        grid-column: 1 / -1;
+        display: flex; flex-direction: column; align-items: center;
+        padding-top: 24px;
+      }
+      .gallery figure.tall img {
+        width: auto; max-width: 100%; max-height: 400px;
+        border: 1px solid var(--line); border-radius: 12px;
+      }
+      .gallery figure.tall figcaption {
+        border-top: 0; text-align: center; padding-top: 16px;
+      }
+
+      /* 기능 목록 */
+      section { padding: 64px 0; }
+      h2 { font-size: clamp(24px, 3.4vw, 32px); letter-spacing: -0.02em; text-align: center; }
+      .sub { text-align: center; color: var(--muted); margin-top: 10px; }
+      .features {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px; margin-top: 40px;
+      }
+      .feature {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: 16px; padding: 22px;
+      }
+      .feature .ico { font-size: 22px; }
+      .feature h3 { font-size: 16px; margin: 10px 0 6px; }
+      .feature p { font-size: 14px; color: var(--muted); }
+
+      /* 체크 목록 */
+      .checklist {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px 20px; margin-top: 34px; max-width: 720px; margin-inline: auto;
+      }
+      .checklist li { list-style: none; font-size: 15px; }
+      .checklist li::before { content: '✔'; color: var(--brand); font-weight: 700; margin-right: 9px; }
+
+      /* 다운로드 박스 */
+      .download {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: 20px; padding: 44px 28px; text-align: center;
+      }
+      .os { margin-top: 10px; font-size: 14px; color: var(--muted); }
+
+      footer {
+        border-top: 1px solid var(--line); padding: 32px 0;
+        text-align: center; color: var(--muted); font-size: 14px;
+      }
+
+      /* 설치 경고 안내 박스 */
+      .notice {
+        margin: 28px auto 0;
+        max-width: 560px;
+        text-align: left;
+        background: #fff8e6;
+        border: 1px solid #f3dfae;
+        border-radius: 12px;
+        padding: 16px 18px;
+      }
+      .notice strong { display: block; font-size: 14px; color: #7a5b00; margin-bottom: 6px; }
+      .notice p { font-size: 13px; line-height: 1.7; color: #6b5a2e; }
+      .notice b { color: #4a3d1a; }
+
+      @media (max-width: 720px) {
+        .gallery { grid-template-columns: 1fr; gap: 20px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <div class="logo">H</div>
+        <span class="brand-name">HYUNLAB</span>
+      </div>
+    </header>
+
+    <!-- 히어로 -->
+    <div class="wrap hero">
+      <span class="badge">무료 · 광고 없음 · 오프라인 지원</span>
+      <h1>HYUNLAB Memo</h1>
+      <p class="tagline">필요한 순간 바로 꺼내 쓰는 메모</p>
+
+      <div class="cta">
+        <!--
+          경로 안내
+            ./app/       → 웹 버전 (npm run build:site 가 자동으로 넣어줍니다)
+            #download    → 아래 다운로드 영역으로 이동
+        -->
+        <a class="btn btn-primary" href="./app/">웹에서 사용하기</a>
+        <a class="btn btn-secondary" href="#download">⬇ Windows 다운로드</a>
+      </div>
+
+      <div class="meta">
+        <span><span class="stars">★★★★★</span> 5.0</span>
+        <span>무료</span>
+        <span>Windows 10/11 지원</span>
+      </div>
+
+      <!-- 실제 앱 화면 (npm run shots 로 자동 촬영한 진짜 화면입니다) -->
+      <div class="hero-shot">
+        <img
+          src="./screenshots/01-main.png"
+          alt="HYUNLAB Memo 메인 화면 — 왼쪽에 프로젝트와 메모 목록, 오른쪽에 선택한 메모"
+          width="1180"
+          height="760"
+          loading="eager"
+        />
+      </div>
+    </div>
+
+    <!-- 스크린샷 갤러리 -->
+    <section class="wrap">
+      <h2>실제 사용 화면</h2>
+      <p class="sub">설치하기 전에 어떤 앱인지 미리 확인해 보세요.</p>
+
+      <div class="gallery">
+        <figure>
+          <img src="./screenshots/02-checklist.png" alt="체크리스트 — 완료한 항목에 취소선이 그어지고 진행률이 표시됩니다" loading="lazy" width="1180" height="760" />
+          <figcaption><b>체크리스트</b> 체크하면 취소선과 진행률이 자동으로 표시됩니다</figcaption>
+        </figure>
+        <figure>
+          <img src="./screenshots/04-drawing.png" alt="그리기 — 메모 위에 펜, 형광펜, 화살표, 동그라미로 표시한 화면" loading="lazy" width="1180" height="760" />
+          <figcaption><b>손그림 메모</b> 글 위에 펜·형광펜·화살표로 자유롭게 표시하세요</figcaption>
+        </figure>
+        <figure>
+          <img src="./screenshots/03-design.png" alt="꾸미기 — 배경색과 스킨을 고르는 패널" loading="lazy" width="1180" height="760" />
+          <figcaption><b>꾸미기</b> 배경색 · 스킨 · 폰트 · 테두리를 원하는 대로</figcaption>
+        </figure>
+        <figure>
+          <img src="./screenshots/05-skins.png" alt="모눈 스킨이 적용된 노란색 메모" loading="lazy" width="1180" height="760" />
+          <figcaption><b>다양한 스킨</b> 줄노트 · 모눈 · 점선 · 포스트잇 · 종이결</figcaption>
+        </figure>
+        <figure class="tall">
+          <img src="./screenshots/06-popup.png" alt="팝업 메모 — 바탕화면에 띄워 두는 작은 메모 창" loading="lazy" width="380" height="440" />
+          <figcaption><b>팝업 메모</b> 바탕화면에 붙여 두고 항상 위에 고정</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 주요 기능 -->
+    <section class="wrap">
+      <h2>왜 HYUNLAB Memo인가?</h2>
+      <p class="sub">Windows 스티커 메모보다 편하게, 필요한 기능만 깔끔하게.</p>
+
+      <ul class="checklist">
+        <li>자동 저장</li>
+        <li>팝업 메모</li>
+        <li>항상 위</li>
+        <li>체크리스트</li>
+        <li>손그림 메모</li>
+        <li>다양한 스킨</li>
+        <li>광고 없음</li>
+        <li>오프라인 사용 가능</li>
+      </ul>
+
+      <div class="features">
+        <div class="feature">
+          <div class="ico">📌</div>
+          <h3>팝업 메모</h3>
+          <p>메모를 독립된 작은 창으로 띄워 바탕화면 어디에나 붙여 두세요. 항상 위, 투명도, 잠금까지 지원합니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">✅</div>
+          <h3>체크리스트</h3>
+          <p>할 일을 체크하면 자동으로 취소선이 그어집니다. 장보기, 업무 목록에 딱 맞습니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🔔</div>
+          <h3>일정 알림</h3>
+          <p>날짜와 시간을 정하면 Windows 알림으로 알려드립니다. 매일·매주·매월 반복도 가능합니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🎨</div>
+          <h3>배경색 &amp; 폰트</h3>
+          <p>크림, 연노랑, 민트, 라벤더 등 8가지 배경색과 Pretendard·SUIT 등 다양한 폰트를 고를 수 있습니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">✏️</div>
+          <h3>손그림 메모</h3>
+          <p>펜·연필·형광펜과 화살표·도형으로 글 위에 바로 표시하세요. 필기는 글과 따로 저장되어 안전합니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">💾</div>
+          <h3>자동 저장 &amp; 백업</h3>
+          <p>저장 버튼이 없습니다. 입력하는 즉시 저장되고, JSON으로 내보내 다른 PC로 옮길 수 있습니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🚀</div>
+          <h3>가볍고 빠르게</h3>
+          <p>실행하면 바로 입력할 수 있습니다. 로그인도, 광고도, 인터넷 연결도 필요 없습니다.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">🔒</div>
+          <h3>내 PC에만 저장</h3>
+          <p>메모는 서버로 전송되지 않고 내 컴퓨터에만 저장됩니다. 계정을 만들 필요도 없습니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 다운로드 -->
+    <section class="wrap" id="download">
+      <div class="download">
+        <h2>지금 바로 시작하세요</h2>
+        <p class="sub">설치 없이 웹에서 쓰거나, 프로그램으로 설치해 더 편하게 사용하세요.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="./app/">웹에서 사용하기</a>
+          <a class="btn btn-secondary" href="https://github.com/b30310-cmd/hyunlab-memo/releases/download/v1.0.0/HYUNLAB-Memo-Setup-1.0.0.exe" download>
+            ⬇ Windows 설치 파일 (.exe)
+          </a>
+        </div>
+        <p class="os">Windows 10 / 11 (64bit) · 용량 약 80MB · 무료</p>
+
+        <!--
+          설치할 때 Windows SmartScreen 경고가 반드시 뜹니다.
+          (코드 서명 인증서가 없기 때문이며, 안내가 없으면 대부분 설치를 포기합니다)
+        -->
+        <div class="notice">
+          <strong>⚠️ 설치할 때 파란 경고 화면이 나옵니다</strong>
+          <p>
+            Windows에서 처음 실행하면 <b>“Windows의 PC 보호”</b> 경고가 나타날 수 있습니다.
+            이때 화면 왼쪽의 <b>[추가 정보]</b> 를 누른 뒤 아래에 나타나는 <b>[실행]</b> 을
+            선택하면 정상적으로 설치됩니다.
+          </p>
+          <p style="margin-top:8px">
+            이 경고는 아직 <b>코드 서명 인증서</b>를 적용하지 않아 표시되는 것으로,
+            프로그램에 문제가 있는 것은 아닙니다. 관리자 권한도 필요하지 않습니다.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <footer>© HYUNLAB · HYUNLAB Memo v1.0.0</footer>
+  </body>
+</html>
