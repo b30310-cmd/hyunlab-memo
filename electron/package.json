@@ -1,0 +1,59 @@
+{
+  "name": "hyunlab-memo-desktop",
+  "version": "1.1.0",
+  "description": "HYUNLAB Memo - Windows desktop app (Electron wrapper around the existing web app)",
+  "private": true,
+  "main": "main.js",
+  "author": "HYUNLAB",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win",
+    "dist:installer": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.hyunlab.memo",
+    "productName": "HYUNLAB Memo",
+    "copyright": "Copyright © HYUNLAB",
+    "asar": true,
+    "publish": null,
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "build/**/*"
+    ],
+    "extraResources": [
+      { "from": "../app", "to": "app" }
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HYUNLAB Memo",
+      "artifactName": "HyunLabMemo_Setup.exe",
+      "differentialPackage": false
+    },
+    "portable": {
+      "artifactName": "HyunLabMemo_Portable.exe"
+    }
+  }
+}
