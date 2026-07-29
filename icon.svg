@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    HYUNLAB Memo 마스터 아이콘
+    종이 + 접힌 모서리 + 체크 + 내용 3줄
+    64px 이상에서 사용합니다. 그 이하는 hyunlab-memo-small.svg 를 쓰세요.
+  -->
+  <defs>
+    <linearGradient id="p" x1="114" y1="92" x2="398" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9070"/><stop offset="1" stop-color="#EE5B3C"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#FDF1EC"/>
+  <!-- 종이 -->
+  <path d="M160 92h142l96 98v188a46 46 0 0 1-46 46H160a46 46 0 0 1-46-46V138a46 46 0 0 1 46-46z" fill="url(#p)"/>
+  <!-- 접힌 모서리: 종이 뒷면이 보이도록 밝게 (어두우면 그림자처럼 보입니다) -->
+  <path d="M302 92l96 98h-96z" fill="#FFDCCF"/>
+  
+  <!-- 체크 -->
+  <path d="M164 214l28 28 56-62" stroke="#FFF" stroke-width="24"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 내용 줄 -->
+  <g fill="#FFF" opacity=".82">
+    <rect x="164" y="286" width="172" height="20" rx="10"/>
+    <rect x="164" y="332" width="172" height="20" rx="10"/>
+    <rect x="164" y="378" width="110" height="20" rx="10"/>
+  </g>
+</svg>
