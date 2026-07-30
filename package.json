@@ -47,6 +47,7 @@
   "build": {
     "appId": "com.hyunlab.memo",
     "productName": "HYUNLAB Memo",
+    "publish": null,
     "directories": {
       "output": "release/${version}"
     },
