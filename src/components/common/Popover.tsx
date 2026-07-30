@@ -50,7 +50,9 @@ export function Popover({ trigger, children, align = 'left', className = '', pre
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative inline-flex">
+    // no-drag: Electron 프레임리스 창(팝업 메모)의 드래그 영역 안에서 열릴 수도 있으므로,
+    // 트리거와 패널 모두 드래그 영역에서 제외해 클릭이 항상 먹히게 합니다.
+    <div ref={rootRef} className="relative inline-flex no-drag">
       <div
         onClick={() => setOpen((o) => !o)}
         onMouseDown={preserveSelection ? (e) => e.preventDefault() : undefined}

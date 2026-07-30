@@ -11,6 +11,7 @@ import { EditorToolbar } from '@/components/Editor/EditorToolbar'
 import { MemoMenu } from '@/components/Editor/MemoMenu'
 import { EditModeBar, type EditMode } from '@/components/Editor/EditModeBar'
 import { Popover } from '@/components/common/Popover'
+import { ContextMenu, type ContextMenuState } from '@/components/ui/ContextMenu'
 import { DrawingLayer } from '@/components/Drawing/DrawingLayer'
 import { DrawingToolbar } from '@/components/Drawing/DrawingToolbar'
 import { IconButton, MenuItem, MenuDivider, MenuLabel, ICON } from '@/components/ui/Button'
@@ -45,6 +46,8 @@ export function PopupWindow({ memoId }: { memoId: string }) {
 
   const [mode, setMode] = useState<EditMode | null>(null)
   const [compact, setCompact] = useState(false)
+  // 사이드바 메모 카드와 동일하게, 팝업에서도 우클릭하면 같은 관리 메뉴(더보기)가 뜹니다.
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
 
   const close = () => (isElectron() ? electron()?.closeWindow() : window.close())
 
@@ -124,7 +127,13 @@ export function PopupWindow({ memoId }: { memoId: string }) {
   return (
     <div className="flex h-screen flex-col overflow-hidden" style={memoStyle(design, isDark)}>
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
-      <div className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5">
+      <div
+        className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtxMenu({ x: e.clientX, y: e.clientY, targetId: memo.id })
+        }}
+      >
         {/* 라벨 (눌러서 바로 변경 — 메인 에디터와 동일) */}
         <Popover
           trigger={() => (
@@ -168,12 +177,13 @@ export function PopupWindow({ memoId }: { memoId: string }) {
           onChange={(e) => updateMemo(memo.id, { title: e.target.value })}
           placeholder="제목"
           disabled={popup.locked}
+          onContextMenu={(e) => e.stopPropagation()}
           className="no-drag mr-auto w-0 min-w-0 flex-1 bg-transparent px-1.5 text-md font-semibold text-body outline-none placeholder:font-medium placeholder:text-faint disabled:cursor-default"
           style={{ fontFamily: titleFontFamily }}
         />
 
         {/* 📌 창을 항상 위에 고정 (목록의 '고정'과는 다른, 이 창만의 설정입니다) */}
-        <IconButton title="창을 항상 위에 고정" size="sm" active={popup.alwaysOnTop} onClick={toggleAlwaysOnTop}>
+        <IconButton title="창을 항상 위에 고정" size="sm" className="no-drag" active={popup.alwaysOnTop} onClick={toggleAlwaysOnTop}>
           <Pin size={ICON.md} className={popup.alwaysOnTop ? 'fill-current' : ''} />
         </IconButton>
 
@@ -247,7 +257,7 @@ export function PopupWindow({ memoId }: { memoId: string }) {
           )}
         </Popover>
 
-        <IconButton title="닫기" size="sm" onClick={close}>
+        <IconButton title="닫기" size="sm" className="no-drag" onClick={close}>
           <X size={ICON.md} />
         </IconButton>
       </div>
@@ -330,6 +340,11 @@ export function PopupWindow({ memoId }: { memoId: string }) {
           <DrawingLayer memoId={memo.id} active={mode === 'draw' && !popup.locked} />
         </div>
       )}
+
+      {/* ── 우클릭 메뉴 : 더보기와 같은 내용(사이드바 메모 카드와 동일한 규칙) ── */}
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)}>
+        {(closeMenu) => <MemoMenu memo={memo} surfaceRef={surfaceRef} onDone={closeMenu} />}
+      </ContextMenu>
     </div>
   )
 }

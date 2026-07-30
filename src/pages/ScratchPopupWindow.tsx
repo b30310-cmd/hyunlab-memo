@@ -12,6 +12,7 @@ import { RichTextEditor } from '@/components/common/RichTextEditor'
 import { EditorToolbar } from '@/components/Editor/EditorToolbar'
 import { EditModeBar, type EditMode } from '@/components/Editor/EditModeBar'
 import { Popover } from '@/components/common/Popover'
+import { ContextMenu, type ContextMenuState } from '@/components/ui/ContextMenu'
 import { DrawingLayer } from '@/components/Drawing/DrawingLayer'
 import { DrawingToolbar } from '@/components/Drawing/DrawingToolbar'
 import { IconButton, MenuItem, MenuDivider, MenuLabel, ICON } from '@/components/ui/Button'
@@ -40,6 +41,8 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
 
   const [mode, setMode] = useState<EditMode | null>(null)
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
+  // 사이드바 메모 카드와 동일하게, 팝업에서도 우클릭하면 같은 관리 메뉴(더보기)가 뜹니다.
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
 
   const close = () => (isElectron() ? electron()?.closeWindow() : window.close())
 
@@ -92,7 +95,13 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
   return (
     <div className="flex h-screen flex-col overflow-hidden" style={memoStyle(design, isDark)}>
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
-      <div className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5">
+      <div
+        className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtxMenu({ x: e.clientX, y: e.clientY, targetId: draftId })
+        }}
+      >
         <Popover
           trigger={() => (
             <IconButton title={label ? `라벨: ${label.name}` : '라벨 지정'} size="sm">
@@ -116,11 +125,12 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
           value={scratch.title}
           onChange={(e) => updateScratch(draftId, { title: e.target.value })}
           placeholder="제목 없음"
+          onContextMenu={(e) => e.stopPropagation()}
           className="no-drag mr-auto w-0 min-w-0 flex-1 bg-transparent px-1.5 text-md font-semibold text-body outline-none placeholder:font-medium placeholder:text-faint"
           style={{ fontFamily: titleFontFamily }}
         />
 
-        <IconButton title="창을 항상 위에 고정" size="sm" active={alwaysOnTop} onClick={toggleAlwaysOnTop}>
+        <IconButton title="창을 항상 위에 고정" size="sm" className="no-drag" active={alwaysOnTop} onClick={toggleAlwaysOnTop}>
           <Pin size={ICON.md} className={alwaysOnTop ? 'fill-current' : ''} />
         </IconButton>
 
@@ -147,7 +157,7 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
           )}
         </Popover>
 
-        <IconButton title="닫기 — 내용은 자동 저장되어 있어요" size="sm" onClick={close}>
+        <IconButton title="닫기 — 내용은 자동 저장되어 있어요" size="sm" className="no-drag" onClick={close}>
           <X size={ICON.md} />
         </IconButton>
       </div>
@@ -190,6 +200,23 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
       <div className="flex h-6 shrink-0 items-center justify-center px-3 text-[11px] text-faint">
         임시 저장됨 — 닫아도 사라지지 않아요. 저장하려면 ⋯ 더보기를 눌러보세요.
       </div>
+
+      {/* ── 우클릭 메뉴 : 더보기와 같은 내용(사이드바 메모 카드와 동일한 규칙) ── */}
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)}>
+        {(closeMenu) => (
+          <ScratchMoreMenu
+            onSaveProject={(id) => { saveAndClose(id); closeMenu() }}
+            onDiscard={() => { removeDraft(draftId); close() }}
+            alwaysOnTop={alwaysOnTop}
+            onToggleAlwaysOnTop={() => { toggleAlwaysOnTop(); closeMenu() }}
+            onOpenSettings={() => {
+              if (isElectron()) electron()?.openMain()
+              else window.open(location.pathname, '_blank')
+              closeMenu()
+            }}
+          />
+        )}
+      </ContextMenu>
     </div>
   )
 }
