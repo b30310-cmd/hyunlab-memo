@@ -1,0 +1,421 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   HYUNLAB Memo — 디자인 시스템
+
+   앱의 모든 색·간격·둥글기를 이 파일에서 한 번에 정합니다.
+   컴포넌트는 여기 정의된 값만 사용하므로 화면마다 어긋나지 않습니다.
+   ============================================================ */
+
+:root {
+  /* ── 강조색: HYUNLAB 브랜드 주황 ──
+     사용자 테스트 피드백을 반영해 기존 코랄보다 밝고 부드러운 주황으로 조정했습니다.
+     (src/lib/constants.ts 의 BRAND_ACCENT 와 같은 값 — 실제 적용값은 useSettingsStore가
+     설정의 강조색을 읽어 이 변수를 자바스크립트로 덮어씁니다)
+     설정에서 사용자가 바꿀 수 있지만, 기본값은 항상 브랜드 색을 씁니다. */
+  --accent: #ff8a5c;
+  --accent-soft: rgba(255, 138, 92, 0.07);
+  --accent-border-soft: rgba(255, 138, 92, 0.35);
+
+  /* ── 라이트 모드 색 ──
+     순수 흰색(#fff) 대신 아주 옅은 회색을 배경으로 써서 눈부심을 줄입니다. */
+  --bg: #f7f8fa; /* 앱 바탕 */
+  --surface: #ffffff; /* 카드·패널 */
+  --surface-2: #f2f3f6; /* 한 단계 안쪽 (입력창 등) */
+  --border: #e6e8ec; /* 경계선 */
+  --border-strong: #d5d8de;
+  /* 글자색은 3단계로만 씁니다.
+     날짜·개수 같은 작은 글자도 읽을 수 있도록
+     가장 옅은 단계(--text-faint)까지 대비비 4.5:1 이상을 지킵니다. */
+  --text: #1a1c20; /* 본문 */
+  --text-muted: #4b5563; /* 보조 */
+  --text-faint: #6b7280; /* 날짜·개수 등 (4.55:1) */
+  --hover: rgba(0, 0, 0, 0.045); /* 마우스 올렸을 때 */
+  --active: rgba(0, 0, 0, 0.075); /* 눌렀을 때 */
+
+  /* ── 그림자 (아주 부드럽게) ── */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.07);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+
+  /* ── 간격 (4의 배수로 통일) ── */
+  --gap-1: 4px;
+  --gap-2: 8px;
+  --gap-3: 12px;
+  --gap-4: 16px;
+  --gap-5: 20px;
+  --gap-6: 24px;
+
+  /* ── 모서리 둥글기 ── */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+
+  /* ── 컨트롤 높이 (버튼·입력창 공통) ── */
+  --h-sm: 28px;
+  --h-md: 32px;
+  --h-lg: 36px;
+
+  /* ── 동작 속도 (빠르고 자연스럽게) ── */
+  --t-fast: 120ms cubic-bezier(0.2, 0, 0.2, 1);
+  --t-base: 180ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* ── 다크 모드 ──
+   순수 검정(#000)은 쓰지 않습니다.
+   푸른기가 살짝 도는 차콜 계열로 눈의 피로를 줄입니다. */
+.dark {
+  --bg: #16181d; /* 차콜 */
+  --surface: #1c1f26; /* 딥 네이비 그레이 */
+  --surface-2: #232733;
+  --border: #2c313c;
+  --border-strong: #3a4150;
+  --text: #e8eaed;
+  --text-muted: #aab2c0;
+  --text-faint: #7e8899; /* 4.96:1 */
+  --hover: rgba(255, 255, 255, 0.06);
+  --active: rgba(255, 255, 255, 0.1);
+  /* 어두운 배경에서 가라앉지 않도록 살짝 더 밝은 주황을 씁니다 */
+  --accent: #ff9e7a;
+  --accent-soft: rgba(255, 158, 122, 0.13);
+  --accent-border-soft: rgba(255, 158, 122, 0.45);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+
+/* ============================================================
+   꾸미기 글꼴 — CSS 파일로 CDN 링크가 안 되는(개별 woff 파일만 있는) 폰트는
+   여기서 직접 @font-face로 선언합니다. (모두 상업적 이용이 가능한 무료 한글 폰트입니다)
+   ============================================================ */
+@font-face {
+  font-family: 'RIDIBatang';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cafe24Ssurround';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2105_2@1.0/Cafe24Ssurround.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cafe24Gowoonbam';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.1/Cafe24Oneprettynight.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OngleipEoyeonce';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2105@1.1/Uiyeun.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KyoboHandwriting2019';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_20-04@1.0/KyoboHand.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'AebiHyeon';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_five@.2.0/UhBeeHYUNJUNG.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SchoolSafeUniverse';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/HakgyoansimWoojuR.woff2') format('woff2');
+  font-weight: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MaruBuri';
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/MaruBuri/MaruBuri-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Jalnan';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@1.2/JalnanOTF00.woff') format('woff');
+  font-weight: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   기본 스타일
+   ============================================================ */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 스크롤바 — 얇고 조용하게 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 포커스 링 — 키보드 사용자에게만 보이게 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   공용 컨트롤 클래스
+   버튼/아이콘버튼은 전부 이 클래스를 씁니다 → 높이·여백·효과가 항상 같습니다.
+   ============================================================ */
+
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-2);
+  height: var(--h-md);
+  padding: 0 var(--gap-3);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--t-fast), color var(--t-fast),
+    border-color var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+  user-select: none;
+}
+.ui-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.ui-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 정사각 아이콘 버튼 — 폭과 높이가 항상 같습니다 */
+.ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-md);
+  height: var(--h-md);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  transition: background-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
+  flex-shrink: 0;
+}
+.ui-icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.ui-icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--active);
+}
+.ui-icon-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* 메뉴 항목 — 높이/여백 통일 */
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-3);
+  width: 100%;
+  height: var(--h-md);
+  padding: 0 var(--gap-2);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  transition: background-color var(--t-fast);
+}
+.ui-menu-item:hover {
+  background: var(--hover);
+}
+.ui-menu-item:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* 패널(팝오버/메뉴) 공통 */
+.ui-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--gap-2);
+}
+
+/* 입력창 공통 */
+.ui-input {
+  height: var(--h-md);
+  padding: 0 var(--gap-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--t-fast), background-color var(--t-fast);
+  width: 100%;
+}
+.ui-input::placeholder {
+  color: var(--text-faint);
+}
+.ui-input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+/* ============================================================
+   리치 텍스트 에디터
+   ============================================================ */
+.rich-editor {
+  outline: none;
+  line-height: 1.75;
+  word-break: break-word;
+}
+.rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.rich-editor ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.rich-editor ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.rich-editor blockquote {
+  border-left: 3px solid var(--border-strong);
+  padding-left: var(--gap-3);
+  color: var(--text-muted);
+  margin: var(--gap-2) 0;
+}
+.rich-editor pre {
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: var(--gap-3);
+  margin: var(--gap-2) 0;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.rich-editor a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* 체크리스트 */
+.rich-editor .check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap-2);
+  margin: 2px 0;
+}
+.rich-editor .check-item input[type='checkbox'] {
+  margin-top: 0.4em;
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.rich-editor .check-item.done {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+.rich-editor .check-item.done input[type='checkbox'] {
+  text-decoration: none;
+}
+
+/* ============================================================
+   애니메이션 — 짧고 은은하게
+   ============================================================ */
+@keyframes ui-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: ui-pop var(--t-base) both;
+}
+
+@keyframes ui-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: ui-fade var(--t-base) both;
+}
+
+/* 움직임을 줄이는 설정을 켠 사용자에게는 애니메이션을 끕니다 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 줄 수 제한 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Electron 프레임리스 창 드래그 영역 */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}

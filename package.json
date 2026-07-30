@@ -1,0 +1,81 @@
+{
+  "name": "hyunlab-memo",
+  "version": "1.0.0",
+  "description": "HYUNLAB Memo - 필요한 순간 바로 꺼내 쓰는 메모",
+  "author": "HYUNLAB",
+  "license": "MIT",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:web": "tsc -b && vite build",
+    "preview": "vite preview",
+    "dev:electron": "cross-env ELECTRON=1 vite",
+    "build:electron": "cross-env ELECTRON=1 tsc -b && cross-env ELECTRON=1 vite build && electron-builder",
+    "build:win": "cross-env ELECTRON=1 tsc -b && cross-env ELECTRON=1 vite build && electron-builder --win",
+    "build:site": "npm run build:web && node scripts/build-site.mjs",
+    "build:pwa-icons": "node scripts/build-pwa-icons.mjs",
+    "shots": "node scripts/capture-shots.mjs",
+    "shots:web": "node scripts/capture-web-shots.mjs",
+    "deploy": "node scripts/deploy-github.mjs",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.hyunlab.memo",
+    "productName": "HYUNLAB Memo",
+    "directories": {
+      "output": "release/${version}"
+    },
+    "files": [
+      "dist",
+      "dist-electron"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "HYUNLAB Memo",
+      "include": "build/installer.nsh",
+      "artifactName": "HYUNLAB-Memo-Setup-${version}.${ext}"
+    }
+  }
+}

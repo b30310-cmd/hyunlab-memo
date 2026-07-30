@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.vite/
+*.local
+.DS_Store
+*.tsbuildinfo
+
+# 배포용 사이트 결과물 (build:site로 언제든 다시 생성)
+website/dist-site/
+
+# GitHub 토큰 (절대 커밋 금지)
+.gh-token
+website/.deploy-stage/

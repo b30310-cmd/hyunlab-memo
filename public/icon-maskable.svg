@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    PWA maskable 아이콘
+
+    안드로이드는 아이콘을 원·사각·물방울 등 여러 모양으로 잘라냅니다.
+    그래서 가장자리가 잘려도 괜찮도록
+      · 배경을 화면 끝까지 채우고
+      · 그림은 가운데 80% 안(안전 영역)에만 그립니다.
+  -->
+  <defs>
+    <linearGradient id="p" x1="160" y1="150" x2="352" y2="374" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9070" />
+      <stop offset="1" stop-color="#EE5B3C" />
+    </linearGradient>
+  </defs>
+
+  <!-- 배경: 잘려도 되도록 꽉 채웁니다 -->
+  <rect width="512" height="512" fill="#FDF1EC" />
+
+  <!-- 안전 영역(가운데 80%) 안에 들어가도록 축소한 메모지 -->
+  <g transform="translate(256 256) scale(0.66) translate(-256 -256)">
+    <path
+      d="M160 92h142l96 98v188a46 46 0 0 1-46 46H160a46 46 0 0 1-46-46V138a46 46 0 0 1 46-46z"
+      fill="url(#p)"
+    />
+    <path d="M302 92l96 98h-96z" fill="#FFDCCF" />
+    <path
+      d="M164 214l28 28 56-62"
+      stroke="#FFF"
+      stroke-width="24"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
+    <g fill="#FFF" opacity=".82">
+      <rect x="164" y="286" width="172" height="20" rx="10" />
+      <rect x="164" y="332" width="172" height="20" rx="10" />
+      <rect x="164" y="378" width="110" height="20" rx="10" />
+    </g>
+  </g>
+</svg>

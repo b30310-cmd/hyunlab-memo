@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 작은 크기(16·32px) 전용 단순화 버전
+       줄을 없애고 체크만 크고 굵게. 실루엣이 살아남습니다. -->
+  <defs>
+    <linearGradient id="p" x1="114" y1="92" x2="398" y2="424" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9070"/><stop offset="1" stop-color="#EE5B3C"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#FDF1EC"/>
+  <path d="M150 84h158l106 108v198a48 48 0 0 1-48 48H150a48 48 0 0 1-48-48V132a48 48 0 0 1 48-48z" fill="url(#p)"/>
+  <path d="M308 84l106 108H308z" fill="#FFDCCF"/>
+  <path d="M166 268l52 52 104-116" stroke="#FFF" stroke-width="46"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
