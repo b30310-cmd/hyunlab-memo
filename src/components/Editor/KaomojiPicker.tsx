@@ -56,7 +56,7 @@ export function KaomojiPicker({ onPick }: { onPick: (text: string) => void }) {
   }
 
   return (
-    <div className="w-64">
+    <div className="w-64 max-w-full">
       <div className="flex gap-1">
         <div className="relative flex-1">
           <Search size={ICON.sm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint" />

@@ -57,7 +57,6 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
   }, [])
 
   const fontFamily = resolveFont(design.font)
-  const titleFontFamily = resolveFont(design.titleFont ?? design.font)
   const label = getLabel(scratch.label)
 
   const toggleAlwaysOnTop = () => {
@@ -121,14 +120,7 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
           )}
         </Popover>
 
-        <input
-          value={scratch.title}
-          onChange={(e) => updateScratch(draftId, { title: e.target.value })}
-          placeholder="제목 없음"
-          onContextMenu={(e) => e.stopPropagation()}
-          className="no-drag mr-auto w-0 min-w-0 flex-1 bg-transparent px-1.5 text-md font-semibold text-body outline-none placeholder:font-medium placeholder:text-faint"
-          style={{ fontFamily: titleFontFamily }}
-        />
+        <div className="mr-auto" />
 
         <IconButton title="창을 항상 위에 고정" size="sm" className="no-drag" active={alwaysOnTop} onClick={toggleAlwaysOnTop}>
           <Pin size={ICON.md} className={alwaysOnTop ? 'fill-current' : ''} />

@@ -29,7 +29,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const gridEmojis = searchResults ?? activeCategory?.emojis ?? []
 
   return (
-    <div className="w-[272px]">
+    <div className="w-[272px] max-w-full">
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
