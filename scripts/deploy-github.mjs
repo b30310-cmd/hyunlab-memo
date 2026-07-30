@@ -5,11 +5,15 @@
 //
 // 하는 일
 //   1. 저장소가 없으면 새로 만듭니다
-//   2. 소개 페이지 + 웹 버전 + 스크린샷을 올립니다
-//   3. GitHub Pages를 켭니다
+//   2. 소개 페이지 + 웹 버전 + 스크린샷을 'gh-pages' 브랜치에 올립니다
+//      (main 브랜치는 소스 코드 전용입니다 — 여기서는 절대 건드리지 않습니다)
+//   3. GitHub Pages를 gh-pages 브랜치로 켭니다
 //   4. 설치 파일(.exe)은 'Release'에 올립니다
 //      → 80MB짜리를 저장소에 넣으면 무거워지고, 큰 파일은 Release가 정석입니다
-//   5. 다운로드 링크를 Release 주소로 자동으로 바꿔 줍니다
+//   5. 다운로드 링크를 releases/latest/download/... 로 바꿔 줍니다
+//      → 설치 파일 이름에 버전을 넣지 않으므로, 새 버전을 릴리스해도
+//        이 링크는 코드 수정 없이 항상 최신 파일을 가리킵니다
+//   6. website/CNAME 이 있으면 그 도메인을 그대로 유지합니다
 //
 // 토큰은 아래 순서로 찾습니다 (대화창에 붙여넣지 않아도 되도록)
 //   ① 환경변수 GH_TOKEN
@@ -31,21 +35,27 @@ const VERSION = pkg.version
 const REPO_NAME = 'hyunlab-memo'
 
 /**
- * 내 도메인 연결 (선택)
+ * 내 도메인 연결
  *
  *   npm run deploy -- --domain=memo.hyunlab.com
  *
- * 또는 아래 CUSTOM_DOMAIN 에 직접 적어도 됩니다.
- * 비워 두면 기본 주소(아이디.github.io/hyunlab-memo)를 씁니다.
+ * 인자를 주지 않으면 website/CNAME 파일에 적힌 도메인을 그대로 씁니다.
+ * 둘 다 없으면 기본 주소(아이디.github.io/hyunlab-memo)를 씁니다.
  *
  * ※ GitHub Pages는 '서브도메인'만 연결됩니다.
  *    memo.hyunlab.com  ← 가능
  *    hyunlab.com/memo  ← 불가 (이건 서버에 직접 올려야 합니다)
  */
+const cnamePath = path.join(ROOT, 'website', 'CNAME')
 const CUSTOM_DOMAIN =
-  process.argv.find((a) => a.startsWith('--domain='))?.split('=')[1]?.trim() || ''
-const EXE_NAME = `HYUNLAB-Memo-Setup-${VERSION}.exe`
+  process.argv.find((a) => a.startsWith('--domain='))?.split('=')[1]?.trim() ||
+  (fs.existsSync(cnamePath) ? fs.readFileSync(cnamePath, 'utf8').trim() : '')
+
+// 설치 파일 이름은 버전을 포함하지 않습니다 (release/${VERSION}/ 폴더에서 찾긴 하지만,
+// 파일명 자체를 고정해야 releases/latest/download/ 링크가 항상 최신 버전을 가리킵니다)
+const EXE_NAME = 'HYUNLAB-Memo-Setup.exe'
 const EXE_PATH = path.join(ROOT, 'release', VERSION, EXE_NAME)
+const GH_PAGES_BRANCH = 'gh-pages'
 
 const ok = (m) => console.log(`  ✅ ${m}`)
 const info = (m) => console.log(`  ·  ${m}`)
@@ -78,7 +88,9 @@ if (!found) {
       '     https://github.com/settings/tokens 에서 토큰을 만든 뒤\n' +
       `     아래 파일에 붙여넣고 저장해 주세요 (한 줄만):\n\n` +
       `       ${path.resolve(ROOT, '..', '.gh-token')}\n\n` +
-      '     필요한 권한: repo (저장소 생성·업로드), workflow 는 불필요',
+      '     classic 토큰이면 repo 권한 하나로 충분합니다.\n' +
+      '     fine-grained 토큰이면 이 저장소에 대해 Contents/Pages/Actions를\n' +
+      '     모두 "Read and write"로 지정해야 합니다.',
   )
 }
 const TOKEN = found.token
@@ -145,7 +157,8 @@ if (repo.status === 404) {
 const PAGES_URL = CUSTOM_DOMAIN
   ? `https://${CUSTOM_DOMAIN}/`
   : `https://${OWNER}.github.io/${REPO_NAME}/`
-const RELEASE_EXE_URL = `https://github.com/${OWNER}/${REPO_NAME}/releases/download/v${VERSION}/${EXE_NAME}`
+// latest/download/ 는 버전과 무관하게 항상 가장 최근 Release의 같은 이름 첨부파일로 리다이렉트됩니다.
+const RELEASE_EXE_URL = `https://github.com/${OWNER}/${REPO_NAME}/releases/latest/download/${EXE_NAME}`
 
 // ---------- 3. 올릴 파일 준비 ----------
 // 설치 파일은 Release로 가므로 download/ 폴더는 제외합니다.
@@ -169,25 +182,26 @@ const indexPath = path.join(STAGE, 'index.html')
 let html = fs.readFileSync(indexPath, 'utf8')
 html = html.replaceAll(`./download/${EXE_NAME}`, RELEASE_EXE_URL)
 fs.writeFileSync(indexPath, html)
-ok('다운로드 링크를 Release 주소로 변경')
+ok('다운로드 링크를 releases/latest/download/ 주소로 변경')
 
-// Jekyll이 파일을 건드리지 않도록 (밑줄로 시작하는 파일 무시 방지)
-fs.writeFileSync(path.join(STAGE, '.nojekyll'), '')
-
-// 내 도메인을 쓰는 경우 CNAME 파일을 넣어야 GitHub이 인식합니다.
+// CNAME/.nojekyll은 이미 build-site.mjs가 dist-site에 포함시켜 뒀습니다.
+// (여기서는 --domain= 로 다른 도메인을 지정했을 때만 덮어씁니다)
 if (CUSTOM_DOMAIN) {
   fs.writeFileSync(path.join(STAGE, 'CNAME'), CUSTOM_DOMAIN + '\n')
-  ok(`내 도메인 설정: ${CUSTOM_DOMAIN}`)
+  ok(`도메인: ${CUSTOM_DOMAIN}`)
+}
+if (!fs.existsSync(path.join(STAGE, '.nojekyll'))) {
+  fs.writeFileSync(path.join(STAGE, '.nojekyll'), '')
 }
 
-// ---------- 4. git push ----------
+// ---------- 4. git push (gh-pages 브랜치로만 — main은 절대 건드리지 않습니다) ----------
 const git = (args, cwd = STAGE) =>
   execFileSync('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim()
 
 git(['init', '-q'])
 git(['config', 'user.name', 'HYUNLAB Deploy'])
 git(['config', 'user.email', `${OWNER}@users.noreply.github.com`])
-git(['checkout', '-q', '-B', 'main'])
+git(['checkout', '-q', '-B', GH_PAGES_BRANCH])
 git(['add', '-A'])
 git(['commit', '-q', '-m', `HYUNLAB Memo v${VERSION} 사이트 배포`])
 
@@ -195,8 +209,8 @@ git(['commit', '-q', '-m', `HYUNLAB Memo v${VERSION} 사이트 배포`])
 const remote = `https://x-access-token:${TOKEN}@github.com/${OWNER}/${REPO_NAME}.git`
 try {
   git(['remote', 'add', 'origin', remote])
-  git(['push', '-q', '--force', 'origin', 'main'])
-  ok('사이트 파일 업로드 완료')
+  git(['push', '-q', '--force', 'origin', `HEAD:${GH_PAGES_BRANCH}`])
+  ok(`사이트 파일 업로드 완료 (${GH_PAGES_BRANCH} 브랜치)`)
 } catch (e) {
   const msg = String(e.stderr ?? e.message).replaceAll(TOKEN, '***')
   die(`업로드 실패:\n     ${msg}`)
@@ -206,8 +220,8 @@ try {
   } catch {}
 }
 
-// ---------- 5. GitHub Pages 켜기 ----------
-const pagesBody = { source: { branch: 'main', path: '/' } }
+// ---------- 5. GitHub Pages 켜기 (gh-pages 브랜치를 서빙) ----------
+const pagesBody = { source: { branch: GH_PAGES_BRANCH, path: '/' } }
 let pages = await api('POST', `/repos/${OWNER}/${REPO_NAME}/pages`, pagesBody)
 if (pages.status === 409 || pages.status === 422) {
   pages = await api('PUT', `/repos/${OWNER}/${REPO_NAME}/pages`, pagesBody)

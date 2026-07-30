@@ -29,10 +29,12 @@ const OUT = path.join(SITE_SRC, 'dist-site')
 const APP_BUILD = path.join(ROOT, 'dist')
 const PUBLIC = path.join(ROOT, 'public')
 
-/** package.json에서 버전을 읽어 설치 파일 이름을 만듭니다. */
+/** package.json에서 버전을 읽어 설치 파일 폴더를 찾습니다.
+ *  (파일 이름 자체는 버전을 넣지 않습니다 — releases/latest/download/ 링크가
+ *   버전이 올라가도 계속 같은 이름을 가리켜야 항상 최신 파일로 연결되기 때문입니다) */
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const VERSION = pkg.version
-const EXE_NAME = `HYUNLAB-Memo-Setup-${VERSION}.exe`
+const EXE_NAME = 'HYUNLAB-Memo-Setup.exe'
 const EXE_PATH = path.join(ROOT, 'release', VERSION, EXE_NAME)
 
 /** 콘솔에 보기 좋게 출력 */
@@ -86,6 +88,17 @@ for (const f of ['icon.svg', 'icon.png']) {
     warn(`${f} 없음 — 건너뜀`)
   }
 }
+
+// 2-1) 커스텀 도메인(CNAME) — 있으면 그대로 결과물 루트에 포함시킵니다.
+const cnameSrc = path.join(SITE_SRC, 'CNAME')
+if (fs.existsSync(cnameSrc)) {
+  fs.copyFileSync(cnameSrc, path.join(OUT, 'CNAME'))
+  ok(`CNAME (${fs.readFileSync(cnameSrc, 'utf8').trim()})`)
+}
+
+// 2-2) GitHub Pages가 Jekyll로 파일을 건드리지 않도록
+fs.writeFileSync(path.join(OUT, '.nojekyll'), '')
+ok('.nojekyll')
 
 // 3) 스크린샷
 const SHOTS = path.join(SITE_SRC, 'screenshots')

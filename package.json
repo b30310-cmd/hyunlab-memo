@@ -75,7 +75,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "HYUNLAB Memo",
       "include": "build/installer.nsh",
-      "artifactName": "HYUNLAB-Memo-Setup-${version}.${ext}"
+      "artifactName": "HYUNLAB-Memo-Setup.${ext}"
     }
   }
 }
