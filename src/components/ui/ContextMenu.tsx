@@ -57,7 +57,7 @@ export function ContextMenu({ state, onClose, children }: Props) {
   return (
     <div
       ref={ref}
-      className="ui-panel animate-pop fixed z-[200] min-w-[12rem]"
+      className="ui-panel animate-pop no-drag fixed z-[200] min-w-[12rem]"
       style={{ left: pos.x, top: pos.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
