@@ -20,6 +20,16 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// 메인 프로세스에서 예기치 못한 예외가 발생해도 Electron 기본 "A JavaScript
+// Error occurred in the main process" 팝업이 뜨지 않게 합니다. 그 팝업은 앱을
+// 잘 모르는 사용자에게는 그냥 무섭고 원인도 알 수 없는 에러 창일 뿐이라, 대신
+// 콘솔에 로그만 남기고 앱은 계속 동작하게 둡니다. (예: 빠른 더블클릭으로 두
+// 프로세스가 거의 동시에 떠서 생기는 타이밍 문제 등, 완전히 없애기 어려운
+// 레이스가 남아 있어도 사용자에게는 보이지 않도록 하는 안전장치)
+process.on('uncaughtException', (err) => {
+  console.error('[main] Uncaught exception:', err)
+})
+
 // 빌드 결과물 경로
 //  - dist-electron/main.js 기준으로 상위가 프로젝트 루트
 process.env.APP_ROOT = path.join(__dirname, '..')
@@ -151,22 +161,28 @@ function createScratchPopupWindow(draftId: string, state: PopupInitState) {
  *  ※ 전역 단축키는 Windows 설치 버전에서만 동작합니다(웹 불가).
  */
 function registerQuickCapture() {
-  const ok = globalShortcut.register('CommandOrControl+Shift+N', () => {
-    // 마우스가 있는 화면(모니터) 기준으로 위치를 잡습니다.
-    const point = screen.getCursorScreenPoint()
-    const display = screen.getDisplayNearestPoint(point)
-    const width = 340
-    const height = 380
-    // 화면 밖으로 나가지 않도록 보정
-    const x = Math.min(Math.max(point.x - width / 2, display.workArea.x), display.workArea.x + display.workArea.width - width)
-    const y = Math.min(Math.max(point.y - 20, display.workArea.y), display.workArea.y + display.workArea.height - height)
+  try {
+    const ok = globalShortcut.register('CommandOrControl+Shift+N', () => {
+      // 마우스가 있는 화면(모니터) 기준으로 위치를 잡습니다.
+      const point = screen.getCursorScreenPoint()
+      const display = screen.getDisplayNearestPoint(point)
+      const width = 340
+      const height = 380
+      // 화면 밖으로 나가지 않도록 보정
+      const x = Math.min(Math.max(point.x - width / 2, display.workArea.x), display.workArea.x + display.workArea.width - width)
+      const y = Math.min(Math.max(point.y - 20, display.workArea.y), display.workArea.y + display.workArea.height - height)
 
-    // 렌더러에 '새 메모 만들어서 팝업으로 열어라'고 알립니다.
-    // (메모 데이터는 렌더러의 저장소가 관리하므로 여기서 직접 만들지 않습니다)
-    if (!mainWindow) createMainWindow()
-    mainWindow?.webContents.send('quick-capture', { x, y, width, height })
-  })
-  if (!ok) console.warn('[quick-capture] 단축키 등록 실패 (다른 앱이 사용 중일 수 있습니다)')
+      // 렌더러에 '새 메모 만들어서 팝업으로 열어라'고 알립니다.
+      // (메모 데이터는 렌더러의 저장소가 관리하므로 여기서 직접 만들지 않습니다)
+      if (!mainWindow) createMainWindow()
+      mainWindow?.webContents.send('quick-capture', { x, y, width, height })
+    })
+    if (!ok) console.warn('[quick-capture] 단축키 등록 실패 (다른 앱이 사용 중일 수 있습니다)')
+  } catch (err) {
+    // 앱이 완전히 준비되기 전에 호출되는 등 예외적인 타이밍에도 여기서 막아
+    // 사용자에게 에러 창이 뜨지 않게 합니다.
+    console.error('[quick-capture] 단축키 등록 중 오류:', err)
+  }
 }
 
 app.on('will-quit', () => {
