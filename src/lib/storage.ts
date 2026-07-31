@@ -31,6 +31,7 @@ import {
   type LabelKey,
 } from '@/types'
 import { BRAND_ACCENT } from '@/lib/constants'
+import { notifyDataChanged } from '@/lib/electron'
 
 const K = {
   memos: 'hyunlab-memo:memos',
@@ -81,9 +82,23 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+// 창(전자앱)마다 별도 프로세스라 브라우저의 storage 이벤트가 file:// 환경에서는
+// 믿을 수 없어서(문서 참고: 팝업에서 등록한 알림을 메인 창의 스케줄러가 못 보던
+// 문제의 원인), Electron IPC로 직접 "데이터가 바뀌었다"고 알립니다. 타이핑 중
+// 매 글자마다 계속 저장되므로, 알리는 신호만 짧게 묶어서(디바운스) 보냅니다.
+let notifyTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleNotify(): void {
+  if (notifyTimer) return
+  notifyTimer = setTimeout(() => {
+    notifyTimer = null
+    notifyDataChanged()
+  }, 400)
+}
+
 function write(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
+    scheduleNotify()
   } catch (e) {
     // 용량 초과(QuotaExceeded) 등
     console.error(`[storage] ${key} 저장 실패:`, e)

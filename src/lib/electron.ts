@@ -37,6 +37,10 @@ export interface ElectronAPI {
   onQuickCapture: (
     callback: (bounds: { x: number; y: number; width: number; height: number }) => void,
   ) => () => void
+  /** 메모/디자인 등 저장 데이터가 바뀌었음을 다른 창들에 알림 */
+  notifyDataChanged: () => void
+  /** 다른 창에서 저장 데이터가 바뀌었다는 알림 구독. 반환값은 구독 해제 함수입니다. */
+  onDataChanged: (callback: () => void) => () => void
 }
 
 declare global {
@@ -108,4 +112,12 @@ export function showNotification(title: string, body: string): void {
 /** 작업표시줄 아이콘을 깜박여 알림을 놓치지 않게 합니다 (Windows 설치 버전 전용) */
 export function flashWindow(): void {
   electron()?.flashWindow()
+}
+
+/**
+ * 저장 데이터가 바뀌었음을 다른 창들에 알립니다 (Windows 설치 버전 전용).
+ * 웹에서는 브라우저의 storage 이벤트가 같은 역할을 대신하므로 아무 일도 하지 않습니다.
+ */
+export function notifyDataChanged(): void {
+  electron()?.notifyDataChanged()
 }

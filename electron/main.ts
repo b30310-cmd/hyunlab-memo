@@ -302,6 +302,16 @@ ipcMain.on('window:flash', (e) => {
   win.flashFrame(true)
 })
 
+// 메모/디자인 등 저장 데이터가 바뀌면(메인 창·팝업·스크래치 팝업 어디서든)
+// 나머지 창들에도 알려서 각자 최신 데이터를 다시 읽게 합니다.
+// (알림 스케줄러는 메인 창 하나에서만 도는데, 팝업에서 알림을 등록해도
+//  메인 창이 이걸 몰라 알림이 울리지 않는 문제를 막기 위함)
+ipcMain.on('data:changed', (e) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.id !== e.sender.id) win.webContents.send('data:changed')
+  }
+})
+
 ipcMain.on('set-auto-start', (_e, enable: boolean) => {
   // Windows 시작 프로그램 등록/해제
   app.setLoginItemSettings({ openAtLogin: enable })
