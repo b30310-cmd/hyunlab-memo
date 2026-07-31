@@ -17,6 +17,7 @@ export const TOOL_PRESETS: Record<ToolType, { width: number; alpha: number }> = 
   arrow: { width: 3, alpha: 1 },
   rect: { width: 3, alpha: 1 },
   circle: { width: 3, alpha: 1 },
+  text: { width: 10, alpha: 1 },
 }
 
 export const DRAW_COLORS = [

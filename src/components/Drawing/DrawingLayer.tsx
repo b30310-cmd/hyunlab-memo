@@ -3,6 +3,7 @@ import type { Stroke } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
 import { useDrawStore } from '@/store/useDrawStore'
 import { createId } from '@/lib/id'
+import { TextStampEditor } from './TextStampEditor'
 
 // ============================================================
 // 4단계: 필기(그리기) 레이어
@@ -32,6 +33,9 @@ export function DrawingLayer({ memoId, active }: Props) {
   const draftRef = useRef<Stroke | null>(null)
   const [, forceRender] = useState(0)
   const [size, setSize] = useState({ w: 0, h: 0 })
+  // '텍스트' 도구로 캔버스를 클릭한 위치. canvas는 획 좌표(캔버스 기준),
+  // client는 입력 패널을 화면에 고정 배치하기 위한 뷰포트 기준 좌표입니다.
+  const [textAt, setTextAt] = useState<{ canvas: [number, number]; client: [number, number] } | null>(null)
 
   // 부모 크기에 맞춰 캔버스 크기 조정
   useLayoutEffect(() => {
@@ -72,8 +76,14 @@ export function DrawingLayer({ memoId, active }: Props) {
 
   const onDown = (e: React.PointerEvent) => {
     if (!active) return
-    e.currentTarget.setPointerCapture(e.pointerId)
     const [x, y] = pos(e)
+
+    if (tool === 'text') {
+      if (!textAt) setTextAt({ canvas: [x, y], client: [e.clientX, e.clientY] })
+      return
+    }
+
+    e.currentTarget.setPointerCapture(e.pointerId)
 
     if (tool === 'eraser') {
       eraseAt(x, y)
@@ -114,11 +124,10 @@ export function DrawingLayer({ memoId, active }: Props) {
     const d = draftRef.current
     draftRef.current = null
     if (!d) return
-    // 점 하나만 찍힌 건 무시 (실수 클릭)
-    if (d.points.length < 4 && !isShape(d.tool)) {
-      forceRender((n) => n + 1)
-      return
-    }
+    // 점 하나만 찍혀도(짧게 톡 찍는 동작) 그대로 저장합니다. 예전에는 이런
+    // 경우를 실수 클릭으로 보고 버렸는데, 그러면 누르는 동안엔 점이
+    // 잠깐 보였다가 떼는 순간 사라져 버려서(특히 형광펜은 이 순간에만
+    // 잠깐 보이다 없어지므로 "투명도가 안 보인다"처럼 느껴졌습니다).
     addStroke(memoId, d)
   }
 
@@ -161,6 +170,25 @@ export function DrawingLayer({ memoId, active }: Props) {
         onPointerUp={onUp}
         onPointerLeave={onUp}
       />
+      {textAt && (
+        <TextStampEditor
+          x={textAt.client[0]}
+          y={textAt.client[1]}
+          onConfirm={(text) => {
+            addStroke(memoId, {
+              id: createId(),
+              tool: 'text',
+              color,
+              width,
+              alpha,
+              points: textAt.canvas,
+              text,
+            })
+            setTextAt(null)
+          }}
+          onCancel={() => setTextAt(null)}
+        />
+      )}
     </div>
   )
 }
@@ -174,6 +202,33 @@ function isShape(tool: Stroke['tool']): boolean {
 function paintStroke(ctx: CanvasRenderingContext2D, s: Stroke) {
   const p = s.points
   if (p.length < 2) return
+
+  if (s.tool === 'text') {
+    if (!s.text) return
+    ctx.save()
+    ctx.globalAlpha = s.alpha
+    ctx.fillStyle = s.color
+    ctx.font = `${Math.max(14, s.width * 2)}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`
+    ctx.textBaseline = 'top'
+    ctx.fillText(s.text, p[0], p[1])
+    ctx.restore()
+    return
+  }
+
+  // 자유곡선 도구(펜·연필·형광펜)를 막 찍은 순간(점 하나뿐일 때)에도
+  // 즉시 색이 보이도록 원으로 채웁니다. 형광펜은 선 끝을 butt로 그리는데,
+  // butt는 길이가 0인 선을 아예 그리지 않아 그 순간엔 투명도가 안 보이는
+  // 것처럼 보였습니다(획을 다 그은 뒤에야 비로소 보임).
+  if (!isShape(s.tool) && p.length === 2) {
+    ctx.save()
+    ctx.globalAlpha = s.alpha
+    ctx.fillStyle = s.color
+    ctx.beginPath()
+    ctx.arc(p[0], p[1], s.width / 2, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+    return
+  }
 
   ctx.save()
   ctx.globalAlpha = s.alpha

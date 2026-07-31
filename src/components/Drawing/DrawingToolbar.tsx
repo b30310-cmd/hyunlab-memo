@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import {
   Pen, Pencil, Highlighter, Eraser, Minus, MoveUpRight, Square, Circle,
-  Undo2, Redo2, Trash2, Eye, EyeOff, ImagePlus,
+  Undo2, Redo2, Trash2, XCircle, Eye, EyeOff, ImagePlus, Type,
 } from 'lucide-react'
 import type { Stroke, ToolType } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
@@ -23,6 +23,7 @@ const TOOLS: { key: ToolType; name: string; icon: React.ReactNode }[] = [
   { key: 'arrow', name: '화살표', icon: <MoveUpRight size={ICON.md} /> },
   { key: 'rect', name: '사각형', icon: <Square size={ICON.md} /> },
   { key: 'circle', name: '동그라미', icon: <Circle size={ICON.md} /> },
+  { key: 'text', name: '텍스트·이모지', icon: <Type size={ICON.md} /> },
 ]
 
 export function DrawingToolbar({ memoId }: { memoId: string }) {
@@ -103,7 +104,7 @@ export function DrawingToolbar({ memoId }: { memoId: string }) {
         max={30}
         value={width}
         onChange={(e) => setWidth(Number(e.target.value))}
-        title={`굵기 ${width}px`}
+        title={tool === 'text' ? `글자 크기 ${Math.max(14, width * 2)}px` : `굵기 ${width}px`}
         className="w-20 accent-[var(--accent)]"
       />
 
@@ -131,6 +132,19 @@ export function DrawingToolbar({ memoId }: { memoId: string }) {
         }}
       >
         <Trash2 size={ICON.md} />
+      </IconButton>
+      <IconButton
+        title="그림 전체 삭제 (필기 + 배경 이미지 모두)"
+        size="sm"
+        disabled={drawing.strokes.length === 0 && !drawing.backgroundImage}
+        onClick={() => {
+          if (confirm('이 메모의 그림을 모두 지울까요?\n(필기 + 배경 이미지 모두 지워집니다. 글 내용은 그대로 남습니다)')) {
+            setStrokes(memoId, [])
+            setBackground(memoId, undefined)
+          }
+        }}
+      >
+        <XCircle size={ICON.md} />
       </IconButton>
       <IconButton
         title={drawing.visible ? '필기 숨기기' : '필기 보이기'}
