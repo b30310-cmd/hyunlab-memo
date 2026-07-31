@@ -18,8 +18,9 @@
 
 import { create } from 'zustand'
 import type { LabelKey, Reminder } from '@/types'
-import { loadScratchDrafts, saveScratchDrafts, DEFAULT_SCRATCH_DRAFT, type ScratchDraft } from '@/lib/storage'
+import { loadScratchDrafts, saveScratchDrafts, DEFAULT_SCRATCH_DRAFT, STORAGE_KEYS, type ScratchDraft } from '@/lib/storage'
 import { createId } from '@/lib/id'
+import { electron } from '@/lib/electron'
 
 export type { ScratchDraft }
 
@@ -44,6 +45,8 @@ interface ScratchState {
   resetDraft: (id: string) => void
   /** 팝업 초안을 완전히 지웁니다 (저장 후 팝업을 닫을 때). 메인 화면 슬롯에는 쓰지 않습니다. */
   removeDraft: (id: string) => void
+  /** 다른 창(팝업 등)에서 초안이 바뀌었을 때 저장소에서 다시 읽어 옵니다. */
+  reloadFromStorage: () => void
 }
 
 const initialDrafts = loadScratchDrafts()
@@ -85,4 +88,20 @@ export const useScratchStore = create<ScratchState>((set, get) => ({
       saveScratchDrafts(drafts)
       return { drafts }
     }),
+
+  reloadFromStorage: () => set({ drafts: loadScratchDrafts() }),
 }))
+
+// ------------------------------------------------------------
+// 창(window) 간 동기화
+//  '새 메모' 팝업에서 등록한 알림을 메인 창의 알림 스케줄러가 곧바로
+//  볼 수 있어야 하므로, useMemoStore와 동일하게 다른 창의 변경을 받습니다.
+// ------------------------------------------------------------
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEYS.scratch) {
+      useScratchStore.getState().reloadFromStorage()
+    }
+  })
+  electron()?.onDataChanged(() => useScratchStore.getState().reloadFromStorage())
+}
