@@ -120,21 +120,25 @@ export type ToolType =
   | 'arrow'
   | 'rect'
   | 'circle'
+  | 'text'
 
 /** 획(stroke) 하나 */
 export interface Stroke {
   id: string
   tool: ToolType
   color: string
-  /** 선 굵기 */
+  /** 선 굵기. text 도구에서는 글자 크기(px)로 씁니다. */
   width: number
   /** 불투명도 (형광펜은 낮음) */
   alpha: number
   /**
    * 좌표 목록 [x0,y0, x1,y1, ...] — 평평한 배열로 저장해 용량을 줄입니다.
-   * 도형(line/arrow/rect/circle)은 시작점과 끝점 2개만 사용합니다.
+   * 도형(line/arrow/rect/circle)은 시작점과 끝점 2개만, text는 놓을 위치
+   * [x,y] 하나만 씁니다.
    */
   points: number[]
+  /** text 도구 전용: 찍어 넣은 글자·이모지·특수문자 내용 */
+  text?: string
 }
 
 export interface MemoDrawing {
