@@ -57,6 +57,21 @@ export function ScratchPad() {
     resetDraft(MAIN_SCRATCH_ID)
     if (drawing.strokes.length) setStrokes(MAIN_SCRATCH_ID, [])
     if (drawing.backgroundImage) setDrawingBackground(MAIN_SCRATCH_ID, undefined)
+    // RichTextEditor는 value(스토어 값)가 바뀌면 useEffect에서 뒤늦게(다음 렌더 이후)
+    // DOM을 비웁니다. 그 틈에 사용자가 곧바로 타이핑을 시작하면, 키 입력이 먼저
+    // "아직 안 지워진" 옛 DOM에 들어갔다가 뒤늦게 그 useEffect가 값(빈 문자열)으로
+    // 강제로 덮어써 버려서 방금 친 글자가 사라졌습니다 — "바로 치면 안 되고 조금
+    // 있다 치면 된다"는 증상과 정확히 일치합니다. 여기서 DOM을 바로 비우고
+    // 포커스를 줘서 그 틈 자체를 없앱니다.
+    if (editorRef.current) editorRef.current.innerHTML = ''
+    editorRef.current?.focus()
+    // confirm() 같은 네이티브 다이얼로그가 뜬 뒤에는(Windows에서 특히) 창이 OS
+    // 차원의 키보드 초점을 실제로 돌려받기까지 살짝 시간이 걸릴 수 있어서, 위에서
+    // 바로 부른 focus()가 씹힐 수 있습니다. 창이 실제로 초점을 되찾는 순간(window의
+    // focus 이벤트)에 한 번 더 focus()를 걸어 두 경우 모두 커버합니다.
+    const refocus = () => editorRef.current?.focus()
+    window.addEventListener('focus', refocus, { once: true })
+    setTimeout(() => window.removeEventListener('focus', refocus), 500)
   }
 
   // EditModeBar·DrawingLayer 등 기존 컴포넌트가 기대하는 Memo 모양으로 맞춰줍니다.
