@@ -291,7 +291,15 @@ ipcMain.on('notify', (_e, title: string, body: string) => {
 })
 
 ipcMain.on('window:flash', (e) => {
-  BrowserWindow.fromWebContents(e.sender)?.flashFrame(true)
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win) return
+  // 알림이 울릴 때 메인 창이 트레이에 숨겨져 있으면(X로 닫아 둔 상태) 작업표시줄에
+  // 아이콘 자체가 없어 깜박임이 보이지 않고, 창 안의 알림 카드(ReminderAlertOverlay)도
+  // 보이지 않습니다. showInactive()로 포커스는 뺏지 않으면서 창과 작업표시줄 아이콘만
+  // 다시 보이게 한 뒤 깜박여서, 사용자가 하던 작업을 방해받지 않고도 알림을 확인할 수
+  // 있게 합니다.
+  if (!win.isVisible()) win.showInactive()
+  win.flashFrame(true)
 })
 
 ipcMain.on('set-auto-start', (_e, enable: boolean) => {

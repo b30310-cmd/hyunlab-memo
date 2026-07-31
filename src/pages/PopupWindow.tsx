@@ -92,7 +92,6 @@ export function PopupWindow({ memoId }: { memoId: string }) {
 
   const { popup } = memo
   const fontFamily = resolveFont(design.font)
-  const titleFontFamily = resolveFont(design.titleFont ?? design.font)
   const label = getLabel(memo.label)
   const project = projects.find((p) => p.id === memo.projectId)
   const progress = checklistProgress(memo.content)
@@ -171,16 +170,7 @@ export function PopupWindow({ memoId }: { memoId: string }) {
           )}
         </Popover>
 
-        {/* 제목 (드래그 영역과 겹치지 않도록 no-drag) */}
-        <input
-          value={memo.title}
-          onChange={(e) => updateMemo(memo.id, { title: e.target.value })}
-          placeholder="제목"
-          disabled={popup.locked}
-          onContextMenu={(e) => e.stopPropagation()}
-          className="no-drag mr-auto w-0 min-w-0 flex-1 bg-transparent px-1.5 text-md font-semibold text-body outline-none placeholder:font-medium placeholder:text-faint disabled:cursor-default"
-          style={{ fontFamily: titleFontFamily }}
-        />
+        <div className="mr-auto" />
 
         {/* 📌 창을 항상 위에 고정 (목록의 '고정'과는 다른, 이 창만의 설정입니다) */}
         <IconButton title="창을 항상 위에 고정" size="sm" className="no-drag" active={popup.alwaysOnTop} onClick={toggleAlwaysOnTop}>

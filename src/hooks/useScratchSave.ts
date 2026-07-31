@@ -34,10 +34,19 @@ export function useScratchSave(draftId: string, editorRef: RefObject<HTMLDivElem
       reminder: scratch.reminder,
     })
     if (drawing.strokes.length > 0) setStrokes(memo.id, drawing.strokes)
-    select(memo.id)
     setStrokes(draftId, [])
-    if (keepDraftSlot) resetDraft(draftId)
-    else removeDraft(draftId)
+    if (keepDraftSlot) {
+      // 메인 화면 스크래치패드: 저장한 메모를 자동으로 열어 보여주지 않습니다.
+      // 오른쪽은 계속 빈 스크래치패드로 남아 바로 다음 메모를 쓸 수 있고,
+      // 방금 저장한 메모는 왼쪽 프로젝트 목록에서 직접 눌러야 열립니다.
+      // (addMemo가 내부적으로 새 메모를 자동 선택하므로, 그 선택을 되돌립니다)
+      select(null)
+      resetDraft(draftId)
+    } else {
+      // 팝업(스크래치) 창: 저장하면 창 자체를 닫으므로 그대로 선택해 둡니다.
+      select(memo.id)
+      removeDraft(draftId)
+    }
     return memo
   }
 
