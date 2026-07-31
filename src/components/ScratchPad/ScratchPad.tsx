@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import { Folder, Tag as TagIcon } from 'lucide-react'
+import { Folder, Plus, Tag as TagIcon } from 'lucide-react'
 import type { Memo } from '@/types'
 import { useScratchStore, MAIN_SCRATCH_ID } from '@/store/useScratchStore'
-import { DEFAULT_POPUP } from '@/store/useMemoStore'
+import { DEFAULT_POPUP, useMemoStore } from '@/store/useMemoStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useScratchSave } from '@/hooks/useScratchSave'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
@@ -15,6 +15,7 @@ import { Button, IconButton, ICON } from '@/components/ui/Button'
 import { LabelPicker } from '@/components/ui/LabelPicker'
 import { SaveToProjectMenu } from './SaveToProjectMenu'
 import { memoStyle, resolveFont, getLabel } from '@/lib/constants'
+import { stripHtml } from '@/lib/filter'
 
 // ============================================================
 // 스크래치패드 — 프로젝트를 먼저 고민하지 않고 자유롭게 쓰는 임시 작업 공간.
@@ -30,6 +31,10 @@ export function ScratchPad() {
   const surfaceRef = useRef<HTMLDivElement>(null)
   const { scratch, design, saveAs } = useScratchSave(MAIN_SCRATCH_ID, editorRef)
   const updateScratch = useScratchStore((s) => s.update)
+  const resetDraft = useScratchStore((s) => s.resetDraft)
+  const drawing = useMemoStore((s) => s.getDrawing(MAIN_SCRATCH_ID))
+  const setStrokes = useMemoStore((s) => s.setStrokes)
+  const setDrawingBackground = useMemoStore((s) => s.setDrawingBackground)
   const isDark = useSettingsStore((s) => s.theme === 'dark')
 
   const [mode, setMode] = useState<EditMode | null>(null)
@@ -40,6 +45,18 @@ export function ScratchPad() {
 
   const saveFromDom = () => {
     if (editorRef.current) updateScratch(MAIN_SCRATCH_ID, { content: editorRef.current.innerHTML })
+  }
+
+  // 쓰다가 틀려서 다 지우기보다, 지금 내용은 버리고 완전히 빈 상태로
+  // 새로 시작할 수 있는 버튼. 잃을 내용이 있을 때만 한 번 확인합니다.
+  const hasContent = Boolean(
+    scratch.title.trim() || stripHtml(scratch.content).trim() || drawing.strokes.length || drawing.backgroundImage,
+  )
+  const startNewMemo = () => {
+    if (hasContent && !confirm('지금 쓰고 있는 내용을 지우고 새 메모를 시작할까요?\n(저장하지 않은 내용은 사라집니다)')) return
+    resetDraft(MAIN_SCRATCH_ID)
+    if (drawing.strokes.length) setStrokes(MAIN_SCRATCH_ID, [])
+    if (drawing.backgroundImage) setDrawingBackground(MAIN_SCRATCH_ID, undefined)
   }
 
   // EditModeBar·DrawingLayer 등 기존 컴포넌트가 기대하는 Memo 모양으로 맞춰줍니다.
@@ -88,6 +105,15 @@ export function ScratchPad() {
         {label && <span className="text-sm font-medium text-muted">{label.name}</span>}
 
         <div className="flex-1" />
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={startNewMemo}
+          title="지금 내용을 지우고 완전히 빈 메모로 새로 시작합니다"
+        >
+          <Plus size={ICON.sm} /> 새 메모
+        </Button>
 
         <Popover
           align="right"
