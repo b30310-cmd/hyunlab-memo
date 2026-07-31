@@ -143,22 +143,6 @@ function createScratchPopupWindow(draftId: string, state: PopupInitState) {
   createFloatingWindow(draftId, `/scratch-popup/${draftId}`, state)
 }
 
-app.whenReady().then(() => {
-  // Windows 알림센터에 앱 이름이 제대로 표시되도록 앱 ID를 지정합니다.
-  // (지정하지 않으면 알림이 'electron.app...' 으로 뜨거나 표시되지 않을 수 있습니다.)
-  if (process.platform === 'win32') app.setAppUserModelId('com.hyunlab.memo')
-
-  // 상단 기본 메뉴 제거 (복사/붙여넣기 등 단축키는 그대로 동작합니다)
-  Menu.setApplicationMenu(null)
-  createMainWindow()
-  createTray()
-  registerQuickCapture()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
-  })
-})
-
 /**
  * 5단계: 빠른 캡처
  *  Ctrl + Shift + N 을 누르면 어느 프로그램을 쓰고 있든
@@ -194,7 +178,14 @@ app.on('window-all-closed', () => {
   // macOS 관례상 유지, Windows에서는 트레이가 있으면 유지
 })
 
-// 하나의 인스턴스만 실행되도록
+// 하나의 인스턴스만 실행되도록.
+// ⚠️ 반드시 app.whenReady()를 등록하기 '전에' 락을 확인해야 합니다. 順序가
+// 반대면(예전 코드), 이미 실행 중인 상태에서 아이콘을 더블클릭해 두 번째
+// 인스턴스가 뜰 때 — 락을 못 받아 app.quit()을 부르더라도, 그 전에 이미
+// 등록해 둔 whenReady().then(...) 콜백이 종료 중인 프로세스에서 뒤늦게
+// 실행되면서 "앱이 완전히 준비되기 전에 globalShortcut을 썼다"는 에러가
+// 났습니다. 락을 먼저 확인해 실패하면 whenReady 콜백 자체를 등록하지
+// 않도록 순서를 바꿨습니다.
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
@@ -205,6 +196,22 @@ if (!gotLock) {
       mainWindow.show()
       mainWindow.focus()
     }
+  })
+
+  app.whenReady().then(() => {
+    // Windows 알림센터에 앱 이름이 제대로 표시되도록 앱 ID를 지정합니다.
+    // (지정하지 않으면 알림이 'electron.app...' 으로 뜨거나 표시되지 않을 수 있습니다.)
+    if (process.platform === 'win32') app.setAppUserModelId('com.hyunlab.memo')
+
+    // 상단 기본 메뉴 제거 (복사/붙여넣기 등 단축키는 그대로 동작합니다)
+    Menu.setApplicationMenu(null)
+    createMainWindow()
+    createTray()
+    registerQuickCapture()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    })
   })
 }
 

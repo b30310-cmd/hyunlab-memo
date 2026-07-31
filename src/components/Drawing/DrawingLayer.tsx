@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Stroke } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
 import { useDrawStore } from '@/store/useDrawStore'
@@ -49,7 +49,12 @@ export function DrawingLayer({ memoId, active }: Props) {
   }, [])
 
   // ---------- 그리기 ----------
-  useEffect(() => {
+  // useLayoutEffect: 마우스를 누른 채 움직이는(드래그) 동안 매번 이 효과가
+  // 다시 실행되는데, useEffect를 쓰면 브라우저가 화면을 이미 한 번 그린
+  // '다음'에 캔버스가 업데이트되어(비동기) 한 프레임씩 늦게 보였습니다.
+  // 놓는 순간까지는 아예 안 그려지는 것처럼 느껴졌던 원인이라, 화면에
+  // 그리기 전에 동기적으로 실행되는 useLayoutEffect로 바꿨습니다.
+  useLayoutEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
