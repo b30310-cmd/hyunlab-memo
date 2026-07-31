@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 // ============================================================
 // 팝오버 (버튼을 누르면 아래에 떠오르는 작은 패널)
@@ -35,7 +36,13 @@ export function Popover({ trigger, children, align = 'left', className = '', pre
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // 패널은 document.body에 포털로 렌더되므로(아래 설명 참고) rootRef의
+      // DOM 자손이 아닙니다 — panelRef도 함께 확인해야 패널 안을 눌렀을 때
+      // "바깥 클릭"으로 오인해 즉시 닫혀버리지 않습니다.
+      if (rootRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -100,21 +107,30 @@ export function Popover({ trigger, children, align = 'left', className = '', pre
       >
         {trigger(open)}
       </div>
-      {open && (
-        <div
-          ref={panelRef}
-          className={`ui-panel animate-pop no-drag fixed z-50 max-w-full overflow-auto ${className}`}
-          style={{
-            top: pos?.top ?? -9999,
-            left: pos?.left ?? -9999,
-            visibility: pos ? 'visible' : 'hidden',
-            maxWidth: pos?.maxWidth,
-            maxHeight: pos?.maxHeight,
-          }}
-        >
-          {typeof children === 'function' ? children(() => setOpen(false)) : children}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          // document.body에 바로 렌더(포털): 패널을 여는 버튼의 조상 중에
+          // transform이 걸린 요소(.animate-pop도 포함 — 끝난 뒤에도 scale(1)이
+          // 남아 있어 계속 해당됨)가 있으면, 그 요소가 이 안의 position:fixed
+          // 자손(패널 안에 또 다른 팝오버가 있는 경우 등)의 기준점이 되어 버려
+          // 화면이 아니라 그 작은 조상 안에 갇힌 것처럼 잘리거나 안 보이게
+          // 됩니다(그림 도구의 텍스트 입력 패널 안 이모지 선택기에서 실제로
+          // 발생). body에 바로 붙이면 그런 조상 체인 자체가 없어집니다.
+          <div
+            ref={panelRef}
+            className={`ui-panel animate-pop no-drag fixed z-50 max-w-full overflow-auto ${className}`}
+            style={{
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              visibility: pos ? 'visible' : 'hidden',
+              maxWidth: pos?.maxWidth,
+              maxHeight: pos?.maxHeight,
+            }}
+          >
+            {typeof children === 'function' ? children(() => setOpen(false)) : children}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
