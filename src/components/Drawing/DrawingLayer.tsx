@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Stroke } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
 import { useDrawStore } from '@/store/useDrawStore'
@@ -29,9 +29,22 @@ export function DrawingLayer({ memoId, active }: Props) {
   const removeStrokes = useMemoStore((s) => s.removeStrokes)
   const { tool, color, width, alpha } = useDrawStore()
 
+  // 펜·연필·형광펜을 고르고 색을 클릭하면, 드래그를 시작하기도 전에
+  // 커서 자체가 그 색과 굵기를 미리 보여줘서 "지금부터 이 색으로 그려진다"는
+  // 걸 바로 알 수 있게 합니다(그리는 도중 실시간으로 안 보이는 것처럼
+  // 느껴졌던 문제를 보완하는 시각적 피드백).
+  const cursor = useMemo(() => cursorFor(tool, color, width, alpha), [tool, color, width, alpha])
+
   // 그리는 중인 획 (아직 저장 전)
   const draftRef = useRef<Stroke | null>(null)
-  const [, forceRender] = useState(0)
+  // 드래그 중 캔버스를 다시 그리라고 알리는 카운터. 값 자체를 아래
+  // useLayoutEffect의 의존성 배열에 넣어야 매번 다시 실행됩니다 — 예전에는
+  // 값은 버리고 상태 변경 함수(setter)만 deps에 넣어서, setter는 리렌더와
+  // 무관하게 항상 같은 참조라 두 번째 획부터는(drawings[memoId]가 store에
+  // 이미 안정적으로 저장돼 있어 drawing도 참조가 안 바뀌는 상태) 드래그
+  // 중에는 캔버스가 전혀 다시 그려지지 않고 마우스를 놓아야만(그 때는
+  // drawing 참조 자체가 바뀌므로) 보이는 버그가 있었습니다.
+  const [renderTick, forceRender] = useState(0)
   const [size, setSize] = useState({ w: 0, h: 0 })
   // '텍스트' 도구로 캔버스를 클릭한 위치. canvas는 획 좌표(캔버스 기준),
   // client는 입력 패널을 화면에 고정 배치하기 위한 뷰포트 기준 좌표입니다.
@@ -47,6 +60,15 @@ export function DrawingLayer({ memoId, active }: Props) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+
+  // 그리기 모드를 벗어나면(다른 모드로 전환) 확인/취소를 누르지 않고 열어
+  // 둔 텍스트·이모지 입력 패널도 함께 닫습니다. 이 패널은 fixed로 화면에
+  // 떠 있는데 active와 무관하게 textAt 상태만으로 렌더되다 보니, 안 닫고
+  // 모드를 바꾸면 본문 위에 그대로 남아 클릭을 가로채 "내용 편집으로
+  // 돌아가도 편집이 안 되는" 것처럼 보였습니다.
+  useEffect(() => {
+    if (!active) setTextAt(null)
+  }, [active])
 
   // ---------- 그리기 ----------
   // useLayoutEffect: 마우스를 누른 채 움직이는(드래그) 동안 매번 이 효과가
@@ -71,7 +93,7 @@ export function DrawingLayer({ memoId, active }: Props) {
 
     const all = draftRef.current ? [...drawing.strokes, draftRef.current] : drawing.strokes
     all.forEach((s) => paintStroke(ctx, s))
-  }, [drawing, size, forceRender])
+  }, [drawing, size, renderTick])
 
   // 좌표 얻기 (캔버스 기준)
   const pos = (e: React.PointerEvent) => {
@@ -166,10 +188,8 @@ export function DrawingLayer({ memoId, active }: Props) {
       )}
       <canvas
         ref={canvasRef}
-        style={{ width: size.w, height: size.h }}
-        className={`absolute left-0 top-0 ${
-          active ? 'pointer-events-auto cursor-crosshair' : 'pointer-events-none'
-        }`}
+        style={{ width: size.w, height: size.h, cursor: active ? cursor : undefined }}
+        className={`absolute left-0 top-0 ${active ? 'pointer-events-auto' : 'pointer-events-none'}`}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -201,6 +221,20 @@ export function DrawingLayer({ memoId, active }: Props) {
 /** 도형 계열인지 (시작점·끝점만 쓰는 도구) */
 function isShape(tool: Stroke['tool']): boolean {
   return tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle'
+}
+
+/** 펜·연필·형광펜을 고르면 커서 자체를 선택된 색·굵기의 작은 원으로 바꿔서,
+ *  드래그를 시작하기 전부터 어떤 색·굵기로 그려질지 미리 보여줍니다. */
+function cursorFor(tool: Stroke['tool'], color: string, width: number, alpha: number): string {
+  if (tool !== 'pen' && tool !== 'pencil' && tool !== 'highlighter') return 'crosshair'
+  const size = Math.min(Math.max(width + 8, 14), 40)
+  const c = size / 2
+  const r = c - 1.5
+  const svg =
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'>` +
+    `<circle cx='${c}' cy='${c}' r='${r}' fill='${color}' fill-opacity='${Math.max(alpha, 0.35)}' stroke='rgba(0,0,0,0.45)' stroke-width='1'/>` +
+    `</svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${c} ${c}, crosshair`
 }
 
 /** 획 하나를 캔버스에 그립니다. */
