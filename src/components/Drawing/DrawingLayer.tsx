@@ -124,11 +124,10 @@ export function DrawingLayer({ memoId, active }: Props) {
     const d = draftRef.current
     draftRef.current = null
     if (!d) return
-    // 점 하나만 찍힌 건 무시 (실수 클릭)
-    if (d.points.length < 4 && !isShape(d.tool)) {
-      forceRender((n) => n + 1)
-      return
-    }
+    // 점 하나만 찍혀도(짧게 톡 찍는 동작) 그대로 저장합니다. 예전에는 이런
+    // 경우를 실수 클릭으로 보고 버렸는데, 그러면 누르는 동안엔 점이
+    // 잠깐 보였다가 떼는 순간 사라져 버려서(특히 형광펜은 이 순간에만
+    // 잠깐 보이다 없어지므로 "투명도가 안 보인다"처럼 느껴졌습니다).
     addStroke(memoId, d)
   }
 
@@ -212,6 +211,21 @@ function paintStroke(ctx: CanvasRenderingContext2D, s: Stroke) {
     ctx.font = `${Math.max(14, s.width * 2)}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`
     ctx.textBaseline = 'top'
     ctx.fillText(s.text, p[0], p[1])
+    ctx.restore()
+    return
+  }
+
+  // 자유곡선 도구(펜·연필·형광펜)를 막 찍은 순간(점 하나뿐일 때)에도
+  // 즉시 색이 보이도록 원으로 채웁니다. 형광펜은 선 끝을 butt로 그리는데,
+  // butt는 길이가 0인 선을 아예 그리지 않아 그 순간엔 투명도가 안 보이는
+  // 것처럼 보였습니다(획을 다 그은 뒤에야 비로소 보임).
+  if (!isShape(s.tool) && p.length === 2) {
+    ctx.save()
+    ctx.globalAlpha = s.alpha
+    ctx.fillStyle = s.color
+    ctx.beginPath()
+    ctx.arc(p[0], p[1], s.width / 2, 0, Math.PI * 2)
+    ctx.fill()
     ctx.restore()
     return
   }
