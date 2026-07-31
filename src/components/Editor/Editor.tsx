@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Pin, Star, ExternalLink, MoreHorizontal, Tag as TagIcon, Folder,
+  Pin, Star, ExternalLink, MoreHorizontal, Tag as TagIcon, Folder, Plus,
 } from 'lucide-react'
 import type { Memo } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
@@ -8,7 +8,7 @@ import { useSettingsStore } from '@/store/useSettingsStore'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 import { EditorToolbar } from './EditorToolbar'
 import { Popover } from '@/components/common/Popover'
-import { IconButton, ICON } from '@/components/ui/Button'
+import { Button, IconButton, ICON } from '@/components/ui/Button'
 import { LabelPicker } from '@/components/ui/LabelPicker'
 import { ProjectPicker } from '@/components/ui/ProjectPicker'
 import { memoStyle, resolveFont, getLabel } from '@/lib/constants'
@@ -29,7 +29,7 @@ import { DrawingToolbar } from '@/components/Drawing/DrawingToolbar'
 // ============================================================
 
 export function Editor({ memo }: { memo: Memo }) {
-  const { updateMemo, togglePin, toggleFavorite, snapshot, moveMemoToProject } = useMemoStore()
+  const { updateMemo, togglePin, toggleFavorite, snapshot, moveMemoToProject, select } = useMemoStore()
   const design = useMemoStore((s) => s.getDesign(memo.id))
   const projects = useMemoStore((s) => s.projects)
   const isDark = useSettingsStore((s) => s.theme === 'dark')
@@ -119,6 +119,14 @@ export function Editor({ memo }: { memo: Memo }) {
         )}
 
         <div className="flex-1" />
+
+        {/* 지금 열려 있는 메모를 계속 편집 중이라는 걸 잊고 여기에 새 내용을
+            바로 쓰다가 이 메모를 덮어써 버리기 쉬워서, 빈 스크래치패드로
+            바로 돌아갈 수 있는 버튼을 항상 눈에 띄게 둡니다. */}
+        <Button variant="secondary" onClick={() => select(null)} title="지금 메모는 그대로 두고 새 메모를 씁니다">
+          <Plus size={ICON.md} />
+          새 메모
+        </Button>
 
         <IconButton
           title={memo.pinned ? '고정 해제 — 지금은 이 프로젝트 목록 맨 위에 있어요' : '고정 — 이 프로젝트 목록 맨 위에 표시'}
