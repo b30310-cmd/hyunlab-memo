@@ -46,6 +46,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** 메인 창 열기 / 앞으로 가져오기 */
   openMain: () => ipcRenderer.send('window:open-main'),
 
+  /**
+   * 메모/디자인 등 저장 데이터가 바뀌었음을 다른 창들에 알립니다.
+   * (팝업에서 알림을 등록해도, 알림 스케줄러가 도는 메인 창이 최신 데이터를
+   *  모르면 알림이 울리지 않으므로 필요합니다)
+   */
+  notifyDataChanged: () => ipcRenderer.send('data:changed'),
+
+  /** 다른 창에서 저장 데이터가 바뀌었다는 알림을 받습니다. */
+  onDataChanged: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('data:changed', listener)
+    return () => ipcRenderer.removeListener('data:changed', listener)
+  },
+
   /** 빠른 캡처 단축키(Ctrl+Shift+N)가 눌렸을 때 알림 받기 */
   onQuickCapture: (
     callback: (bounds: { x: number; y: number; width: number; height: number }) => void,

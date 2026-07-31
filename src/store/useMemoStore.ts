@@ -12,6 +12,7 @@ import { DEFAULT_DESIGN, DEFAULT_DRAWING } from '@/types'
 import { createId } from '@/lib/id'
 import { BRAND_ACCENT } from '@/lib/constants'
 import * as db from '@/lib/storage'
+import { electron } from '@/lib/electron'
 
 /** 팝업 기본 상태 */
 export const DEFAULT_POPUP: Memo['popup'] = {
@@ -359,6 +360,10 @@ export const useMemoStore = create<MemoState>((set, get) => ({
 // ------------------------------------------------------------
 // 창(window) 간 동기화
 //  팝업 창에서 수정하면 메인 창에도 즉시 반영됩니다.
+//  (웹은 브라우저의 storage 이벤트로, Windows 앱은 Electron IPC로 — 창마다
+//   별도 프로세스인 Electron에서는 file:// 환경의 storage 이벤트를 믿을 수
+//   없어서 팝업에서 등록한 알림을 메인 창의 알림 스케줄러가 못 보는 문제가
+//   있었습니다. lib/storage.ts의 write()가 저장할 때마다 IPC로도 알립니다)
 // ------------------------------------------------------------
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
@@ -366,4 +371,5 @@ if (typeof window !== 'undefined') {
       useMemoStore.getState().reloadFromStorage()
     }
   })
+  electron()?.onDataChanged(() => useMemoStore.getState().reloadFromStorage())
 }
