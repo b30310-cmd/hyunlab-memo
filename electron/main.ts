@@ -45,42 +45,6 @@ let tray: Tray | null = null
 const popupWindows = new Map<string, BrowserWindow>()
 
 // ------------------------------------------------------------
-// 알림 — 작업표시줄 아이콘 빠르게 깜박이기
-//  Electron의 flashFrame(true)는 켜고 끄는 신호만 보낼 뿐, 깜박이는
-//  속도 자체는 Windows 기본값(운영체제가 정함)이라 직접 조절할 수
-//  없습니다. 대신 짧은 간격으로 껐다 켰다를 반복해서 기본값보다 눈에
-//  더 잘 띄게(빠르게 깜박이는 것처럼) 만듭니다. 창에 포커스가 오거나
-//  일정 시간이 지나면 자동으로 멈춥니다.
-// ------------------------------------------------------------
-const flashTimers = new Map<number, ReturnType<typeof setInterval>>()
-const FAST_FLASH_INTERVAL = 350 // ms — Windows 기본 깜박임보다 빠르게
-const FAST_FLASH_DURATION = 8000 // ms — 계속 깜박이면 방해가 되므로 이후 자동 정지
-
-function startFastFlash(win: BrowserWindow) {
-  stopFastFlash(win)
-  let on = false
-  const timer = setInterval(() => {
-    if (win.isDestroyed()) {
-      stopFastFlash(win)
-      return
-    }
-    on = !on
-    win.flashFrame(on)
-  }, FAST_FLASH_INTERVAL)
-  flashTimers.set(win.id, timer)
-  setTimeout(() => stopFastFlash(win), FAST_FLASH_DURATION)
-}
-
-function stopFastFlash(win: BrowserWindow) {
-  const timer = flashTimers.get(win.id)
-  if (timer) {
-    clearInterval(timer)
-    flashTimers.delete(win.id)
-  }
-  if (!win.isDestroyed()) win.flashFrame(false)
-}
-
-// ------------------------------------------------------------
 // 모서리 피크 — 팝업 창을 화면 가장자리에 살짝만 보이게 숨겨 두었다가,
 // 마우스를 올리면 전체가 나오는 기능. 창의 실제 크기는 그대로 두고
 // 위치만 화면 밖으로 밀어내는 방식이라 별도의 애니메이션 라이브러리 없이
@@ -260,7 +224,7 @@ function createMainWindow() {
 
   // 알림 때문에 깜박이던 작업표시줄 아이콘은 창에 포커스가 오면 멈춥니다.
   mainWindow.on('focus', () => {
-    if (mainWindow) stopFastFlash(mainWindow)
+    mainWindow?.flashFrame(false)
   })
 }
 
@@ -550,7 +514,7 @@ ipcMain.on('window:flash', (e) => {
   // 다시 보이게 한 뒤 깜박여서, 사용자가 하던 작업을 방해받지 않고도 알림을 확인할 수
   // 있게 합니다.
   if (!win.isVisible()) win.showInactive()
-  startFastFlash(win)
+  win.flashFrame(true)
 })
 
 // 메모/디자인 등 저장 데이터가 바뀌면(메인 창·팝업·스크래치 팝업 어디서든)
