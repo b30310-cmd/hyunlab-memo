@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Pin, X, MoreHorizontal, Tag as TagIcon, Settings,
   Folder, ArrowUpToLine, Check, ChevronLeft,
+  ArrowLeftToLine, ArrowRightToLine,
 } from 'lucide-react'
 import type { Memo } from '@/types'
 import { DEFAULT_POPUP } from '@/store/useMemoStore'
@@ -41,6 +42,9 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
 
   const [mode, setMode] = useState<EditMode | null>(null)
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
+  // 저장 전 초안 창이라 alwaysOnTop처럼 이 창의 수명 동안만 유지되면 되고,
+  // 메모 자체에 저장할 필요는 없습니다.
+  const [peekEdge, setPeekEdge] = useState<'left' | 'right' | null>(null)
   // 사이드바 메모 카드와 동일하게, 팝업에서도 우클릭하면 같은 관리 메뉴(더보기)가 뜹니다.
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
 
@@ -63,6 +67,16 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
     const next = !alwaysOnTop
     setAlwaysOnTop(next)
     electron()?.setAlwaysOnTop(next)
+  }
+
+  /** 모서리 피크: 켜면 화면 밖으로 살짝만 보이게 숨겼다가, 마우스를 올리면 펼쳐집니다. */
+  const togglePeek = (edge: 'left' | 'right') => {
+    const next = peekEdge === edge ? null : edge
+    setPeekEdge(next)
+    // 피크는 다른 창에 가려지면 의미가 없어서, 켜는 동시에 항상 위도 함께 켭니다.
+    if (next) setAlwaysOnTop(true)
+    if (next) electron()?.enablePeek(next)
+    else electron()?.disablePeek()
   }
 
   const saveFromDom = () => {
@@ -92,7 +106,12 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden" style={memoStyle(design, isDark)}>
+    <div
+      className="flex h-screen flex-col overflow-hidden"
+      style={memoStyle(design, isDark)}
+      onMouseEnter={() => { if (peekEdge) electron()?.peekReveal() }}
+      onMouseLeave={() => { if (peekEdge) electron()?.peekCollapse() }}
+    >
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
       <div
         className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"
@@ -140,6 +159,8 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
               onDiscard={() => { removeDraft(draftId); close() }}
               alwaysOnTop={alwaysOnTop}
               onToggleAlwaysOnTop={() => { toggleAlwaysOnTop(); closeMenu() }}
+              peekEdge={peekEdge}
+              onTogglePeek={(edge) => { togglePeek(edge); closeMenu() }}
               onOpenSettings={() => {
                 if (isElectron()) electron()?.openMain()
                 else window.open(location.pathname, '_blank')
@@ -201,6 +222,8 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
             onDiscard={() => { removeDraft(draftId); close() }}
             alwaysOnTop={alwaysOnTop}
             onToggleAlwaysOnTop={() => { toggleAlwaysOnTop(); closeMenu() }}
+            peekEdge={peekEdge}
+            onTogglePeek={(edge) => { togglePeek(edge); closeMenu() }}
             onOpenSettings={() => {
               if (isElectron()) electron()?.openMain()
               else window.open(location.pathname, '_blank')
@@ -214,12 +237,14 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
 }
 
 function ScratchMoreMenu({
-  onSaveProject, onDiscard, alwaysOnTop, onToggleAlwaysOnTop, onOpenSettings,
+  onSaveProject, onDiscard, alwaysOnTop, onToggleAlwaysOnTop, peekEdge, onTogglePeek, onOpenSettings,
 }: {
   onSaveProject: (id: string) => void
   onDiscard: () => void
   alwaysOnTop: boolean
   onToggleAlwaysOnTop: () => void
+  peekEdge: 'left' | 'right' | null
+  onTogglePeek: (edge: 'left' | 'right') => void
   onOpenSettings: () => void
 }) {
   const [view, setView] = useState<'menu' | 'project'>('menu')
@@ -255,6 +280,25 @@ function ScratchMoreMenu({
       >
         항상 위
       </MenuItem>
+      {isElectron() && (
+        <>
+          <MenuLabel>모서리 피크 — 평소엔 살짝 숨겼다가 마우스를 올리면 펼침</MenuLabel>
+          <MenuItem
+            icon={<ArrowLeftToLine size={ICON.md} />}
+            trailing={peekEdge === 'left' ? <Check size={ICON.sm} className="text-accent" /> : undefined}
+            onClick={() => onTogglePeek('left')}
+          >
+            왼쪽 가장자리에 숨기기
+          </MenuItem>
+          <MenuItem
+            icon={<ArrowRightToLine size={ICON.md} />}
+            trailing={peekEdge === 'right' ? <Check size={ICON.sm} className="text-accent" /> : undefined}
+            onClick={() => onTogglePeek('right')}
+          >
+            오른쪽 가장자리에 숨기기
+          </MenuItem>
+        </>
+      )}
       <MenuItem icon={<Settings size={ICON.md} />} onClick={onOpenSettings}>
         설정 열기
       </MenuItem>

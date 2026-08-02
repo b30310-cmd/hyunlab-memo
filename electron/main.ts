@@ -44,6 +44,85 @@ let tray: Tray | null = null
 // 열려 있는 팝업 창들 (memoId → 창)
 const popupWindows = new Map<string, BrowserWindow>()
 
+// ------------------------------------------------------------
+// 모서리 피크 — 팝업 창을 화면 가장자리에 살짝만 보이게 숨겨 두었다가,
+// 마우스를 올리면 전체가 나오는 기능. 창의 실제 크기는 그대로 두고
+// 위치(x)만 화면 밖으로 밀어내는 방식이라 별도의 애니메이션 라이브러리 없이
+// 구현할 수 있습니다.
+// ------------------------------------------------------------
+interface PeekInfo {
+  edge: 'left' | 'right'
+  /** 피크가 아닐 때(펼쳐졌을 때)의 진짜 위치·크기 */
+  fullBounds: Electron.Rectangle
+  /** 지금 접힌 상태인지 — sendBounds에서 이 위치를 "진짜 위치"로 잘못 저장하지 않기 위해 씀 */
+  collapsed: boolean
+  hideTimer?: ReturnType<typeof setTimeout>
+}
+const peekMap = new Map<number, PeekInfo>() // BrowserWindow.id → 상태
+
+/** 화면 밖으로 살짝 밀려나 실제로 보이는 폭(px) */
+const PEEK_STRIP = 14
+/** 마우스가 창을 벗어난 뒤 다시 접기까지 기다리는 시간(ms) — 너무 빨리 접히면 실수로 닫히는 느낌이 듦 */
+const PEEK_HIDE_DELAY = 450
+
+function clampY(y: number, height: number, workArea: Electron.Rectangle): number {
+  return Math.min(Math.max(y, workArea.y), workArea.y + workArea.height - height)
+}
+
+function computePeekBounds(bounds: Electron.Rectangle, edge: 'left' | 'right'): Electron.Rectangle {
+  const wa = screen.getDisplayMatching(bounds).workArea
+  const x = edge === 'left' ? wa.x - (bounds.width - PEEK_STRIP) : wa.x + wa.width - PEEK_STRIP
+  return { x, y: clampY(bounds.y, bounds.height, wa), width: bounds.width, height: bounds.height }
+}
+
+function computeRevealBounds(bounds: Electron.Rectangle, edge: 'left' | 'right'): Electron.Rectangle {
+  const wa = screen.getDisplayMatching(bounds).workArea
+  const x = edge === 'left' ? wa.x : wa.x + wa.width - bounds.width
+  return { x, y: clampY(bounds.y, bounds.height, wa), width: bounds.width, height: bounds.height }
+}
+
+function enablePeek(win: BrowserWindow, edge: 'left' | 'right') {
+  const existing = peekMap.get(win.id)
+  // 펼쳐진 상태에서 켰다면 지금 위치를 "진짜 위치"로, 이미 접힌 상태에서
+  // 가장자리만 바꿨다면(왼쪽↔오른쪽) 기존에 기억해 둔 진짜 위치를 그대로 씁니다.
+  const fullBounds = existing && existing.collapsed ? existing.fullBounds : win.getBounds()
+  if (existing?.hideTimer) clearTimeout(existing.hideTimer)
+  peekMap.set(win.id, { edge, fullBounds, collapsed: true })
+  win.setAlwaysOnTop(true) // 항상 위와 함께가 아니면 다른 창에 가려 의미가 없음
+  win.setBounds(computePeekBounds(fullBounds, edge))
+}
+
+function disablePeek(win: BrowserWindow) {
+  const info = peekMap.get(win.id)
+  if (!info) return
+  if (info.hideTimer) clearTimeout(info.hideTimer)
+  win.setBounds(info.fullBounds)
+  peekMap.delete(win.id)
+}
+
+function peekReveal(win: BrowserWindow) {
+  const info = peekMap.get(win.id)
+  if (!info) return
+  if (info.hideTimer) clearTimeout(info.hideTimer)
+  info.collapsed = false
+  win.setBounds(computeRevealBounds(info.fullBounds, info.edge))
+}
+
+function peekCollapse(win: BrowserWindow) {
+  const info = peekMap.get(win.id)
+  if (!info) return
+  if (info.hideTimer) clearTimeout(info.hideTimer)
+  info.hideTimer = setTimeout(() => {
+    if (win.isDestroyed()) return
+    // 펼쳐진 동안 사용자가 창을 위아래로 옮겼을 수 있으니, 접기 직전의
+    // y좌표를 다음 "진짜 위치"에 반영합니다.
+    const cur = win.getBounds()
+    info.fullBounds = { ...info.fullBounds, y: cur.y }
+    info.collapsed = true
+    win.setBounds(computePeekBounds(info.fullBounds, info.edge))
+  }, PEEK_HIDE_DELAY)
+}
+
 const preload = path.join(__dirname, 'preload.cjs')
 
 /** 렌더러의 특정 라우트(해시)를 로드하는 헬퍼 */
@@ -129,10 +208,17 @@ function createFloatingWindow(id: string, route: string, state: PopupInitState) 
   if (state.opacity) win.setOpacity(state.opacity)
   loadRoute(win, route)
 
+  // 이전에 모서리 피크를 켜 둔 채로 저장된 메모라면, 창을 열자마자 다시
+  // 접힌 상태로 시작합니다.
+  if (state.peekEdge) enablePeek(win, state.peekEdge)
+
   // 창을 옮기거나 크기를 바꾸면 렌더러에 알려 메모에 위치를 저장하게 합니다.
   // (Windows 스티커 메모처럼 "메모 위치 기억")
   const sendBounds = () => {
     if (win.isDestroyed()) return
+    // 피크로 접힌 동안의 위치는 화면 밖으로 밀어낸 가짜 위치라, 그대로
+    // 저장하면 다음에 열 때 창이 화면 밖에서 시작해 버립니다.
+    if (peekMap.get(win.id)?.collapsed) return
     const b = win.getBounds()
     win.webContents.send('popup:bounds-changed', b)
   }
@@ -140,7 +226,12 @@ function createFloatingWindow(id: string, route: string, state: PopupInitState) 
   win.on('resized', sendBounds)
 
   popupWindows.set(id, win)
-  win.on('closed', () => popupWindows.delete(id))
+  win.on('closed', () => {
+    popupWindows.delete(id)
+    const info = peekMap.get(win.id)
+    if (info?.hideTimer) clearTimeout(info.hideTimer)
+    peekMap.delete(win.id)
+  })
 }
 
 /** 팝업(스티커) 창 생성 — 이미 저장된 메모용 */
@@ -267,6 +358,7 @@ interface PopupInitState {
   height: number
   alwaysOnTop: boolean
   opacity: number
+  peekEdge?: 'left' | 'right' | null
 }
 
 ipcMain.on('open-popup', (_e, memoId: string, state: PopupInitState) => {
@@ -283,6 +375,26 @@ ipcMain.on('popup:set-always-on-top', (e, value: boolean) => {
 
 ipcMain.on('popup:set-opacity', (e, value: number) => {
   BrowserWindow.fromWebContents(e.sender)?.setOpacity(value)
+})
+
+ipcMain.on('popup:enable-peek', (e, edge: 'left' | 'right') => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (win) enablePeek(win, edge)
+})
+
+ipcMain.on('popup:disable-peek', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (win) disablePeek(win)
+})
+
+ipcMain.on('popup:peek-reveal', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (win) peekReveal(win)
+})
+
+ipcMain.on('popup:peek-collapse', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (win) peekCollapse(win)
 })
 
 ipcMain.on('window:open-main', () => {
