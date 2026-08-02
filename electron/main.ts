@@ -45,101 +45,129 @@ let tray: Tray | null = null
 const popupWindows = new Map<string, BrowserWindow>()
 
 // ------------------------------------------------------------
+// 알림 — 작업표시줄 아이콘 빠르게 깜박이기
+//  Electron의 flashFrame(true)는 켜고 끄는 신호만 보낼 뿐, 깜박이는
+//  속도 자체는 Windows 기본값(운영체제가 정함)이라 직접 조절할 수
+//  없습니다. 대신 짧은 간격으로 껐다 켰다를 반복해서 기본값보다 눈에
+//  더 잘 띄게(빠르게 깜박이는 것처럼) 만듭니다. 창에 포커스가 오거나
+//  일정 시간이 지나면 자동으로 멈춥니다.
+// ------------------------------------------------------------
+const flashTimers = new Map<number, ReturnType<typeof setInterval>>()
+const FAST_FLASH_INTERVAL = 350 // ms — Windows 기본 깜박임보다 빠르게
+const FAST_FLASH_DURATION = 8000 // ms — 계속 깜박이면 방해가 되므로 이후 자동 정지
+
+function startFastFlash(win: BrowserWindow) {
+  stopFastFlash(win)
+  let on = false
+  const timer = setInterval(() => {
+    if (win.isDestroyed()) {
+      stopFastFlash(win)
+      return
+    }
+    on = !on
+    win.flashFrame(on)
+  }, FAST_FLASH_INTERVAL)
+  flashTimers.set(win.id, timer)
+  setTimeout(() => stopFastFlash(win), FAST_FLASH_DURATION)
+}
+
+function stopFastFlash(win: BrowserWindow) {
+  const timer = flashTimers.get(win.id)
+  if (timer) {
+    clearInterval(timer)
+    flashTimers.delete(win.id)
+  }
+  if (!win.isDestroyed()) win.flashFrame(false)
+}
+
+// ------------------------------------------------------------
 // 모서리 피크 — 팝업 창을 화면 가장자리에 살짝만 보이게 숨겨 두었다가,
 // 마우스를 올리면 전체가 나오는 기능. 창의 실제 크기는 그대로 두고
 // 위치만 화면 밖으로 밀어내는 방식이라 별도의 애니메이션 라이브러리 없이
 // 구현할 수 있습니다.
 //
-// 같은 가장자리에 여러 창을 숨기면 서로 겹치지 않도록, 창마다 "슬롯"(세로
-// 순번)을 배정해 위에서부터 차례로 쌓아 보여줍니다. 접혔을 때는 작은
-// 손잡이 높이(PEEK_COLLAPSED_HEIGHT)만큼만 차지하고, 펼쳐지면 원래 크기로
-// 돌아갑니다.
+// 접혔을 때 보이는 손잡이(세로 위치, collapsedY)는 사용자가 직접 위아래로
+// 드래그해서 원하는 곳으로 옮길 수 있습니다(가로는 항상 가장자리에 고정).
+// 새로 피크를 켤 때는 같은 가장자리에 이미 피크 중인 다른 창들 바로
+// 아래로 기본 배치해서, 적어도 처음엔 서로 겹치지 않게 합니다.
 // ------------------------------------------------------------
 interface PeekInfo {
   edge: 'left' | 'right'
-  /** 피크가 아닐 때(펼쳐졌을 때)의 진짜 크기(너비·높이). x/y는 슬롯으로 계산하므로 안 씀 */
+  /** 피크가 아닐 때(펼쳐졌을 때)의 진짜 크기(너비·높이) */
   fullBounds: Electron.Rectangle
   /** 지금 접힌 상태인지 — sendBounds에서 이 위치를 "진짜 위치"로 잘못 저장하지 않기 위해 씀 */
   collapsed: boolean
-  /** 같은 가장자리에서 몇 번째 줄에 쌓일지 */
-  slot: number
+  /** 접혔을 때(손잡이) 세로 위치 — 사용자가 드래그하면 여기가 바뀝니다 */
+  collapsedY: number
   hideTimer?: ReturnType<typeof setTimeout>
 }
 const peekMap = new Map<number, PeekInfo>() // BrowserWindow.id → 상태
-// 가장자리별로 지금 피크 중인 창 id를 순서대로 담아 둡니다(슬롯 배정용).
-const peekSlots: Record<'left' | 'right', number[]> = { left: [], right: [] }
 
 /** 화면 밖으로 살짝 밀려나 실제로 보이는 폭(px) */
 const PEEK_STRIP = 14
 /** 접혔을 때 세로로 차지하는 높이(손잡이 크기) */
 const PEEK_COLLAPSED_HEIGHT = 46
-/** 접힌 창들 사이의 간격 */
+/** 새로 피크를 켤 때, 기존에 피크 중인 창들 사이에 두는 간격 */
 const PEEK_ROW_GAP = 6
-/** 화면 위쪽에서 첫 슬롯까지의 여백 */
+/** 화면 위쪽에서 첫 손잡이까지의 기본 여백 */
 const PEEK_TOP_MARGIN = 24
 /** 마우스가 창을 벗어난 뒤 다시 접기까지 기다리는 시간(ms) — 너무 빨리 접히면 실수로 닫히는 느낌이 듦 */
 const PEEK_HIDE_DELAY = 450
 
-/** 슬롯 번호에 해당하는 접힌/펼친 상태의 창 위치·크기를 계산합니다. */
-function slotBounds(
-  fullBounds: Electron.Rectangle,
-  edge: 'left' | 'right',
-  slot: number,
-  collapsed: boolean,
-): Electron.Rectangle {
-  const wa = screen.getDisplayMatching(fullBounds).workArea
-  const height = collapsed ? PEEK_COLLAPSED_HEIGHT : fullBounds.height
-  const rawY = wa.y + PEEK_TOP_MARGIN + slot * (PEEK_COLLAPSED_HEIGHT + PEEK_ROW_GAP)
-  const y = Math.min(rawY, wa.y + wa.height - height)
-  const x = collapsed
-    ? edge === 'left' ? wa.x - (fullBounds.width - PEEK_STRIP) : wa.x + wa.width - PEEK_STRIP
-    : edge === 'left' ? wa.x : wa.x + wa.width - fullBounds.width
-  return { x, y, width: fullBounds.width, height }
+function peekWorkArea(fullBounds: Electron.Rectangle) {
+  return screen.getDisplayMatching(fullBounds).workArea
 }
 
-/** 슬롯을 배정합니다. 이미 배정돼 있으면 그 번호를 그대로 돌려줍니다. */
-function allocateSlot(edge: 'left' | 'right', winId: number): number {
-  const list = peekSlots[edge]
-  if (!list.includes(winId)) list.push(winId)
-  return list.indexOf(winId)
+/** 접혔을 때(x는 가장자리 고정, y는 collapsedY) 위치·크기를 계산합니다. */
+function collapsedBounds(info: PeekInfo): Electron.Rectangle {
+  const wa = peekWorkArea(info.fullBounds)
+  const y = Math.min(Math.max(info.collapsedY, wa.y), wa.y + wa.height - PEEK_COLLAPSED_HEIGHT)
+  const x = info.edge === 'left'
+    ? wa.x - (info.fullBounds.width - PEEK_STRIP)
+    : wa.x + wa.width - PEEK_STRIP
+  return { x, y, width: info.fullBounds.width, height: PEEK_COLLAPSED_HEIGHT }
 }
 
-/** 슬롯을 반납하고, 뒤에 있던 창들을 한 칸씩 당겨 빈자리가 안 남게 합니다. */
-function releaseSlot(edge: 'left' | 'right', winId: number) {
-  const list = peekSlots[edge]
-  const i = list.indexOf(winId)
-  if (i === -1) return
-  list.splice(i, 1)
-  list.forEach((id, newSlot) => {
-    const win = BrowserWindow.fromId(id)
-    const info = peekMap.get(id)
-    if (!win || win.isDestroyed() || !info) return
-    info.slot = newSlot
-    if (info.collapsed) win.setBounds(slotBounds(info.fullBounds, edge, newSlot, true))
-  })
+/** 펼쳤을 때(가장자리에 완전히 붙은) 위치·크기를 계산합니다. */
+function revealedBounds(info: PeekInfo): Electron.Rectangle {
+  const wa = peekWorkArea(info.fullBounds)
+  const y = Math.min(Math.max(info.collapsedY, wa.y), wa.y + wa.height - info.fullBounds.height)
+  const x = info.edge === 'left' ? wa.x : wa.x + wa.width - info.fullBounds.width
+  return { x, y, width: info.fullBounds.width, height: info.fullBounds.height }
 }
 
-function enablePeek(win: BrowserWindow, edge: 'left' | 'right') {
+/** 새로 피크를 켤 때 쓸 기본 세로 위치 — 같은 가장자리의 기존 손잡이들 바로 아래 */
+function defaultCollapsedY(edge: 'left' | 'right', wa: Electron.Rectangle): number {
+  let y = wa.y + PEEK_TOP_MARGIN
+  for (const info of peekMap.values()) {
+    if (info.edge !== edge) continue
+    y = Math.max(y, info.collapsedY + PEEK_COLLAPSED_HEIGHT + PEEK_ROW_GAP)
+  }
+  return Math.min(y, wa.y + wa.height - PEEK_COLLAPSED_HEIGHT)
+}
+
+function enablePeek(win: BrowserWindow, edge: 'left' | 'right', savedY?: number | null) {
   const existing = peekMap.get(win.id)
   // 펼쳐진 상태에서 켰다면 지금 크기를 "진짜 크기"로, 이미 접힌 상태에서
   // 가장자리만 바꿨다면(왼쪽↔오른쪽) 기존에 기억해 둔 크기를 그대로 씁니다.
   const fullBounds = existing && existing.collapsed ? existing.fullBounds : win.getBounds()
   if (existing?.hideTimer) clearTimeout(existing.hideTimer)
-  if (existing && existing.edge !== edge) releaseSlot(existing.edge, win.id)
-  const slot = allocateSlot(edge, win.id)
-  peekMap.set(win.id, { edge, fullBounds, collapsed: true, slot })
+  const wa = peekWorkArea(fullBounds)
+  // 저장돼 있던 위치가 있으면 그대로, 없으면(처음 켜는 경우) 기존 손잡이들
+  // 아래로 기본 배치합니다.
+  const collapsedY = existing ? existing.collapsedY : savedY ?? defaultCollapsedY(edge, wa)
+  const info: PeekInfo = { edge, fullBounds, collapsed: true, collapsedY }
+  peekMap.set(win.id, info)
   win.setAlwaysOnTop(true) // 항상 위와 함께가 아니면 다른 창에 가려 의미가 없음
-  win.setBounds(slotBounds(fullBounds, edge, slot, true))
+  win.setBounds(collapsedBounds(info))
 }
 
 function disablePeek(win: BrowserWindow) {
   const info = peekMap.get(win.id)
   if (!info) return
   if (info.hideTimer) clearTimeout(info.hideTimer)
-  // 슬롯을 반납하기 전에, 지금 슬롯 기준의 "펼친" 위치(가장자리에 붙은 자리)로
-  // 되돌려 놓습니다 — 창이 화면 밖에 있던 접힌 위치 그대로 남지 않도록.
-  win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, false))
-  releaseSlot(info.edge, win.id)
+  // 화면 밖에 있던 접힌 위치 그대로 남지 않도록, 펼친(가장자리에 붙은) 위치로 되돌립니다.
+  win.setBounds(revealedBounds(info))
   peekMap.delete(win.id)
 }
 
@@ -148,7 +176,7 @@ function peekReveal(win: BrowserWindow) {
   if (!info) return
   if (info.hideTimer) clearTimeout(info.hideTimer)
   info.collapsed = false
-  win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, false))
+  win.setBounds(revealedBounds(info))
 }
 
 function peekCollapse(win: BrowserWindow) {
@@ -158,12 +186,28 @@ function peekCollapse(win: BrowserWindow) {
   info.hideTimer = setTimeout(() => {
     if (win.isDestroyed()) return
     // 펼쳐진 동안 사용자가 창 크기를 조절했을 수 있으니 반영합니다.
-    // (위치는 슬롯 기준으로 고정이라 x/y는 그대로 슬롯 계산을 따릅니다)
     const cur = win.getBounds()
     info.fullBounds = { ...info.fullBounds, width: cur.width, height: cur.height }
     info.collapsed = true
-    win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, true))
+    win.setBounds(collapsedBounds(info))
   }, PEEK_HIDE_DELAY)
+}
+
+/**
+ * 접힌 손잡이를 사용자가 드래그했을 때 호출합니다. 가로는 항상 가장자리에
+ * 고정하고(드래그로 벗어났어도 되돌림), 세로 위치만 반영해서 기억해 둡니다.
+ * 반환값이 있으면 렌더러에 알려서 그 메모에 저장하게 합니다.
+ */
+function handlePeekDrag(win: BrowserWindow): number | null {
+  const info = peekMap.get(win.id)
+  if (!info || !info.collapsed) return null
+  const wa = peekWorkArea(info.fullBounds)
+  const cur = win.getBounds()
+  const clampedY = Math.min(Math.max(cur.y, wa.y), wa.y + wa.height - PEEK_COLLAPSED_HEIGHT)
+  info.collapsedY = clampedY
+  const expected = collapsedBounds(info)
+  if (cur.x !== expected.x || cur.y !== expected.y) win.setBounds(expected)
+  return clampedY
 }
 
 const preload = path.join(__dirname, 'preload.cjs')
@@ -216,7 +260,7 @@ function createMainWindow() {
 
   // 알림 때문에 깜박이던 작업표시줄 아이콘은 창에 포커스가 오면 멈춥니다.
   mainWindow.on('focus', () => {
-    mainWindow?.flashFrame(false)
+    if (mainWindow) stopFastFlash(mainWindow)
   })
 }
 
@@ -252,30 +296,40 @@ function createFloatingWindow(id: string, route: string, state: PopupInitState) 
   loadRoute(win, route)
 
   // 이전에 모서리 피크를 켜 둔 채로 저장된 메모라면, 창을 열자마자 다시
-  // 접힌 상태로 시작합니다.
-  if (state.peekEdge) enablePeek(win, state.peekEdge)
+  // 접힌 상태로(저장돼 있던 세로 위치 그대로) 시작합니다.
+  if (state.peekEdge) enablePeek(win, state.peekEdge, state.peekY)
 
   // 창을 옮기거나 크기를 바꾸면 렌더러에 알려 메모에 위치를 저장하게 합니다.
   // (Windows 스티커 메모처럼 "메모 위치 기억")
-  const sendBounds = () => {
+  //
+  // 접힌(피크) 상태에서 옮기는 건 사용자가 손잡이를 드래그해 원하는 자리로
+  // 옮기는 것이므로, 일반 위치 저장과는 다르게 처리합니다 — 가로는 가장
+  // 자리에 고정시키고, 세로 위치만 별도 채널로 알려서 peekY로 저장하게 합니다.
+  const handleMoved = () => {
     if (win.isDestroyed()) return
-    // 피크로 접힌 동안의 위치는 화면 밖으로 밀어낸 가짜 위치라, 그대로
-    // 저장하면 다음에 열 때 창이 화면 밖에서 시작해 버립니다.
-    if (peekMap.get(win.id)?.collapsed) return
-    const b = win.getBounds()
-    win.webContents.send('popup:bounds-changed', b)
+    const info = peekMap.get(win.id)
+    if (info?.collapsed) {
+      const y = handlePeekDrag(win)
+      if (y != null) win.webContents.send('popup:peek-y-changed', y)
+      return
+    }
+    win.webContents.send('popup:bounds-changed', win.getBounds())
   }
-  win.on('moved', sendBounds)
-  win.on('resized', sendBounds)
+  const handleResized = () => {
+    if (win.isDestroyed()) return
+    // 피크로 접힌 동안의 크기는 손잡이용 임시 크기라, 그대로 저장하면 다음에
+    // 열 때 창이 그 작은 크기로 시작해 버립니다.
+    if (peekMap.get(win.id)?.collapsed) return
+    win.webContents.send('popup:bounds-changed', win.getBounds())
+  }
+  win.on('moved', handleMoved)
+  win.on('resized', handleResized)
 
   popupWindows.set(id, win)
   win.on('closed', () => {
     popupWindows.delete(id)
     const info = peekMap.get(win.id)
-    if (info) {
-      if (info.hideTimer) clearTimeout(info.hideTimer)
-      releaseSlot(info.edge, win.id)
-    }
+    if (info?.hideTimer) clearTimeout(info.hideTimer)
     peekMap.delete(win.id)
   })
 }
@@ -405,6 +459,7 @@ interface PopupInitState {
   alwaysOnTop: boolean
   opacity: number
   peekEdge?: 'left' | 'right' | null
+  peekY?: number | null
 }
 
 ipcMain.on('open-popup', (_e, memoId: string, state: PopupInitState) => {
@@ -457,6 +512,21 @@ ipcMain.on('window:close', (e) => {
   BrowserWindow.fromWebContents(e.sender)?.close()
 })
 
+// 렌더러에서 새 DOM 노드에 element.focus()를 불러도, Windows에서는 그
+// 노드가 진짜 키보드 입력을 못 받는 상태가 남는 경우가 있었습니다(다른
+// 창을 열었다 닫거나, 최소화했다 복원하면 그제서야 정상화됨 — 사용자가
+// 직접 확인해 준 재현 방법). document.activeElement는 맞게 가리키고
+// 있어도 Chromium의 렌더 위젯 쪽 포커스 상태가 따로 놀 때가 있는
+// 것으로 보입니다. 창을 blur() 했다가 곧바로 focus()하면, 실제로 다른
+// 창을 열었다 닫는 것과 같은 "진짜 포커스 전환"이 강제로 일어나서 그
+// 상태가 다시 맞춰집니다.
+ipcMain.on('window:refocus', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win || win.isDestroyed()) return
+  win.blur()
+  win.focus()
+})
+
 ipcMain.on('notify', (_e, title: string, body: string) => {
   if (!Notification.isSupported()) return
   // 소리는 항상 끄고 보냅니다. 렌더러가 설정(알림음 On/Off)에 따라
@@ -480,7 +550,7 @@ ipcMain.on('window:flash', (e) => {
   // 다시 보이게 한 뒤 깜박여서, 사용자가 하던 작업을 방해받지 않고도 알림을 확인할 수
   // 있게 합니다.
   if (!win.isVisible()) win.showInactive()
-  win.flashFrame(true)
+  startFastFlash(win)
 })
 
 // 메모/디자인 등 저장 데이터가 바뀌면(메인 창·팝업·스크래치 팝업 어디서든)
@@ -490,6 +560,15 @@ ipcMain.on('window:flash', (e) => {
 ipcMain.on('data:changed', (e) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents.id !== e.sender.id) win.webContents.send('data:changed')
+  }
+})
+
+// 알림 스케줄러(메인 창)가 알림을 울리면, 그 메모를 팝업으로 열어 둔 창이
+// 있을 수도 있으니 모든 창에 알려서 각자 "이 메모 맞으면 표시 내기"를
+// 하게 합니다 (팝업 창을 주황색으로 표시).
+ipcMain.on('alert:fired', (e, memoId: string) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.id !== e.sender.id) win.webContents.send('alert:fired', memoId)
   }
 })
 

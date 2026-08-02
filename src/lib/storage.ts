@@ -178,6 +178,7 @@ function migrateV1toV2(): void {
         alwaysOnTop: m.popup?.alwaysOnTop ?? true,
         locked: m.popup?.locked ?? false,
         peekEdge: null,
+        peekY: null,
       },
       createdAt: m.createdAt ?? Date.now(),
       updatedAt: m.updatedAt ?? Date.now(),

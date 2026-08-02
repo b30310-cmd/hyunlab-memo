@@ -15,6 +15,7 @@ interface PopupState {
   opacity: number
   locked: boolean
   peekEdge: 'left' | 'right' | null
+  peekY: number | null
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -44,8 +45,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** 마우스가 창에서 벗어났을 때 — 잠시 뒤 다시 가장자리로 접습니다 */
   peekCollapse: () => ipcRenderer.send('popup:peek-collapse'),
 
+  /** 접힌 손잡이를 드래그해 세로 위치가 바뀌었을 때 알림 받기 */
+  onPeekYChanged: (callback: (y: number) => void) => {
+    const listener = (_e: unknown, y: number) => callback(y)
+    ipcRenderer.on('popup:peek-y-changed', listener)
+    return () => ipcRenderer.removeListener('popup:peek-y-changed', listener)
+  },
+
   /** 현재 창 닫기 */
   closeWindow: () => ipcRenderer.send('window:close'),
+
+  /**
+   * 지금 창에 진짜 키보드 포커스를 강제로 다시 줍니다(blur 후 focus).
+   * DOM에서 새로 만든 입력창에 focus()를 불러도 실제 키보드 입력이 안
+   * 들어오는 경우(Windows에서 관찰됨)를 위한 안전장치입니다.
+   */
+  refocusWindow: () => ipcRenderer.send('window:refocus'),
 
   /** Windows 알림 표시 */
   notify: (title: string, body: string) => ipcRenderer.send('notify', title, body),
@@ -71,6 +86,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback()
     ipcRenderer.on('data:changed', listener)
     return () => ipcRenderer.removeListener('data:changed', listener)
+  },
+
+  /** 알림(리마인더)이 울렸음을 다른 창들에 알립니다 (그 메모를 팝업으로 열어 뒀을 수 있으므로) */
+  notifyAlertFired: (memoId: string) => ipcRenderer.send('alert:fired', memoId),
+
+  /** 다른 창에서 알림이 울렸다는 소식을 받습니다. */
+  onAlertFired: (callback: (memoId: string) => void) => {
+    const listener = (_e: unknown, memoId: string) => callback(memoId)
+    ipcRenderer.on('alert:fired', listener)
+    return () => ipcRenderer.removeListener('alert:fired', listener)
   },
 
   /** 빠른 캡처 단축키(Ctrl+Shift+N)가 눌렸을 때 알림 받기 */

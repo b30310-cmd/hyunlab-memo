@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Pin, X, MoreHorizontal, Tag as TagIcon, Settings,
   Folder, ArrowUpToLine, Check, ChevronLeft,
-  ArrowLeftToLine, ArrowRightToLine,
+  ArrowLeftToLine, ArrowRightToLine, Bell,
 } from 'lucide-react'
 import type { Memo } from '@/types'
 import { DEFAULT_POPUP } from '@/store/useMemoStore'
+import { useAlertStore } from '@/store/useAlertStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useScratchStore } from '@/store/useScratchStore'
 import { useScratchSave } from '@/hooks/useScratchSave'
@@ -39,6 +40,10 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
   const updateScratch = useScratchStore((s) => s.update)
   const removeDraft = useScratchStore((s) => s.removeDraft)
   const isDark = useSettingsStore((s) => s.theme === 'dark')
+  // 이 초안에 걸어 둔 알림이 방금 울렸으면(다른 창의 알림 스케줄러가 알려줌)
+  // 창을 주황색으로 표시해서 눈에 띄게 합니다. 클릭하면 확인 처리됩니다.
+  const myAlert = useAlertStore((s) => s.alerts.find((a) => a.memoId === draftId))
+  const dismissAlert = useAlertStore((s) => s.dismiss)
 
   const [mode, setMode] = useState<EditMode | null>(null)
   const [alwaysOnTop, setAlwaysOnTop] = useState(true)
@@ -107,11 +112,23 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden"
+      className="relative flex h-screen flex-col overflow-hidden"
       style={memoStyle(design, isDark)}
       onMouseEnter={() => { if (peekEdge) electron()?.peekReveal() }}
       onMouseLeave={() => { if (peekEdge) electron()?.peekCollapse() }}
     >
+      {/* 알림이 방금 울렸으면 창 전체를 주황색으로 표시. 클릭하면 확인 처리됩니다. */}
+      {myAlert && (
+        <button
+          onClick={() => dismissAlert(myAlert.id)}
+          title="알림 시각이 되었습니다 — 클릭하면 확인 처리됩니다"
+          className="animate-pulse absolute inset-0 z-50 flex items-center justify-center gap-2 bg-[#ff8a5c] text-white"
+        >
+          <Bell size={ICON.lg} />
+          <span className="text-sm font-semibold">알림 — 클릭해서 확인</span>
+        </button>
+      )}
+
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
       <div
         className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"
