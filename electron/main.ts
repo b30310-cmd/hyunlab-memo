@@ -47,56 +47,99 @@ const popupWindows = new Map<string, BrowserWindow>()
 // ------------------------------------------------------------
 // 모서리 피크 — 팝업 창을 화면 가장자리에 살짝만 보이게 숨겨 두었다가,
 // 마우스를 올리면 전체가 나오는 기능. 창의 실제 크기는 그대로 두고
-// 위치(x)만 화면 밖으로 밀어내는 방식이라 별도의 애니메이션 라이브러리 없이
+// 위치만 화면 밖으로 밀어내는 방식이라 별도의 애니메이션 라이브러리 없이
 // 구현할 수 있습니다.
+//
+// 같은 가장자리에 여러 창을 숨기면 서로 겹치지 않도록, 창마다 "슬롯"(세로
+// 순번)을 배정해 위에서부터 차례로 쌓아 보여줍니다. 접혔을 때는 작은
+// 손잡이 높이(PEEK_COLLAPSED_HEIGHT)만큼만 차지하고, 펼쳐지면 원래 크기로
+// 돌아갑니다.
 // ------------------------------------------------------------
 interface PeekInfo {
   edge: 'left' | 'right'
-  /** 피크가 아닐 때(펼쳐졌을 때)의 진짜 위치·크기 */
+  /** 피크가 아닐 때(펼쳐졌을 때)의 진짜 크기(너비·높이). x/y는 슬롯으로 계산하므로 안 씀 */
   fullBounds: Electron.Rectangle
   /** 지금 접힌 상태인지 — sendBounds에서 이 위치를 "진짜 위치"로 잘못 저장하지 않기 위해 씀 */
   collapsed: boolean
+  /** 같은 가장자리에서 몇 번째 줄에 쌓일지 */
+  slot: number
   hideTimer?: ReturnType<typeof setTimeout>
 }
 const peekMap = new Map<number, PeekInfo>() // BrowserWindow.id → 상태
+// 가장자리별로 지금 피크 중인 창 id를 순서대로 담아 둡니다(슬롯 배정용).
+const peekSlots: Record<'left' | 'right', number[]> = { left: [], right: [] }
 
 /** 화면 밖으로 살짝 밀려나 실제로 보이는 폭(px) */
 const PEEK_STRIP = 14
+/** 접혔을 때 세로로 차지하는 높이(손잡이 크기) */
+const PEEK_COLLAPSED_HEIGHT = 46
+/** 접힌 창들 사이의 간격 */
+const PEEK_ROW_GAP = 6
+/** 화면 위쪽에서 첫 슬롯까지의 여백 */
+const PEEK_TOP_MARGIN = 24
 /** 마우스가 창을 벗어난 뒤 다시 접기까지 기다리는 시간(ms) — 너무 빨리 접히면 실수로 닫히는 느낌이 듦 */
 const PEEK_HIDE_DELAY = 450
 
-function clampY(y: number, height: number, workArea: Electron.Rectangle): number {
-  return Math.min(Math.max(y, workArea.y), workArea.y + workArea.height - height)
+/** 슬롯 번호에 해당하는 접힌/펼친 상태의 창 위치·크기를 계산합니다. */
+function slotBounds(
+  fullBounds: Electron.Rectangle,
+  edge: 'left' | 'right',
+  slot: number,
+  collapsed: boolean,
+): Electron.Rectangle {
+  const wa = screen.getDisplayMatching(fullBounds).workArea
+  const height = collapsed ? PEEK_COLLAPSED_HEIGHT : fullBounds.height
+  const rawY = wa.y + PEEK_TOP_MARGIN + slot * (PEEK_COLLAPSED_HEIGHT + PEEK_ROW_GAP)
+  const y = Math.min(rawY, wa.y + wa.height - height)
+  const x = collapsed
+    ? edge === 'left' ? wa.x - (fullBounds.width - PEEK_STRIP) : wa.x + wa.width - PEEK_STRIP
+    : edge === 'left' ? wa.x : wa.x + wa.width - fullBounds.width
+  return { x, y, width: fullBounds.width, height }
 }
 
-function computePeekBounds(bounds: Electron.Rectangle, edge: 'left' | 'right'): Electron.Rectangle {
-  const wa = screen.getDisplayMatching(bounds).workArea
-  const x = edge === 'left' ? wa.x - (bounds.width - PEEK_STRIP) : wa.x + wa.width - PEEK_STRIP
-  return { x, y: clampY(bounds.y, bounds.height, wa), width: bounds.width, height: bounds.height }
+/** 슬롯을 배정합니다. 이미 배정돼 있으면 그 번호를 그대로 돌려줍니다. */
+function allocateSlot(edge: 'left' | 'right', winId: number): number {
+  const list = peekSlots[edge]
+  if (!list.includes(winId)) list.push(winId)
+  return list.indexOf(winId)
 }
 
-function computeRevealBounds(bounds: Electron.Rectangle, edge: 'left' | 'right'): Electron.Rectangle {
-  const wa = screen.getDisplayMatching(bounds).workArea
-  const x = edge === 'left' ? wa.x : wa.x + wa.width - bounds.width
-  return { x, y: clampY(bounds.y, bounds.height, wa), width: bounds.width, height: bounds.height }
+/** 슬롯을 반납하고, 뒤에 있던 창들을 한 칸씩 당겨 빈자리가 안 남게 합니다. */
+function releaseSlot(edge: 'left' | 'right', winId: number) {
+  const list = peekSlots[edge]
+  const i = list.indexOf(winId)
+  if (i === -1) return
+  list.splice(i, 1)
+  list.forEach((id, newSlot) => {
+    const win = BrowserWindow.fromId(id)
+    const info = peekMap.get(id)
+    if (!win || win.isDestroyed() || !info) return
+    info.slot = newSlot
+    if (info.collapsed) win.setBounds(slotBounds(info.fullBounds, edge, newSlot, true))
+  })
 }
 
 function enablePeek(win: BrowserWindow, edge: 'left' | 'right') {
   const existing = peekMap.get(win.id)
-  // 펼쳐진 상태에서 켰다면 지금 위치를 "진짜 위치"로, 이미 접힌 상태에서
-  // 가장자리만 바꿨다면(왼쪽↔오른쪽) 기존에 기억해 둔 진짜 위치를 그대로 씁니다.
+  // 펼쳐진 상태에서 켰다면 지금 크기를 "진짜 크기"로, 이미 접힌 상태에서
+  // 가장자리만 바꿨다면(왼쪽↔오른쪽) 기존에 기억해 둔 크기를 그대로 씁니다.
   const fullBounds = existing && existing.collapsed ? existing.fullBounds : win.getBounds()
   if (existing?.hideTimer) clearTimeout(existing.hideTimer)
-  peekMap.set(win.id, { edge, fullBounds, collapsed: true })
+  if (existing && existing.edge !== edge) releaseSlot(existing.edge, win.id)
+  const slot = allocateSlot(edge, win.id)
+  peekMap.set(win.id, { edge, fullBounds, collapsed: true, slot })
   win.setAlwaysOnTop(true) // 항상 위와 함께가 아니면 다른 창에 가려 의미가 없음
-  win.setBounds(computePeekBounds(fullBounds, edge))
+  win.setBounds(slotBounds(fullBounds, edge, slot, true))
 }
 
 function disablePeek(win: BrowserWindow) {
   const info = peekMap.get(win.id)
   if (!info) return
   if (info.hideTimer) clearTimeout(info.hideTimer)
-  win.setBounds(info.fullBounds)
+  // 슬롯을 반납하기 전에, 지금 슬롯 기준의 "펼친" 위치(가장자리에 붙은 자리)로
+  // 되돌려 놓습니다 — 창이 화면 밖에 있던 접힌 위치 그대로 남지 않도록.
+  win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, false))
+  releaseSlot(info.edge, win.id)
   peekMap.delete(win.id)
 }
 
@@ -105,7 +148,7 @@ function peekReveal(win: BrowserWindow) {
   if (!info) return
   if (info.hideTimer) clearTimeout(info.hideTimer)
   info.collapsed = false
-  win.setBounds(computeRevealBounds(info.fullBounds, info.edge))
+  win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, false))
 }
 
 function peekCollapse(win: BrowserWindow) {
@@ -114,12 +157,12 @@ function peekCollapse(win: BrowserWindow) {
   if (info.hideTimer) clearTimeout(info.hideTimer)
   info.hideTimer = setTimeout(() => {
     if (win.isDestroyed()) return
-    // 펼쳐진 동안 사용자가 창을 위아래로 옮겼을 수 있으니, 접기 직전의
-    // y좌표를 다음 "진짜 위치"에 반영합니다.
+    // 펼쳐진 동안 사용자가 창 크기를 조절했을 수 있으니 반영합니다.
+    // (위치는 슬롯 기준으로 고정이라 x/y는 그대로 슬롯 계산을 따릅니다)
     const cur = win.getBounds()
-    info.fullBounds = { ...info.fullBounds, y: cur.y }
+    info.fullBounds = { ...info.fullBounds, width: cur.width, height: cur.height }
     info.collapsed = true
-    win.setBounds(computePeekBounds(info.fullBounds, info.edge))
+    win.setBounds(slotBounds(info.fullBounds, info.edge, info.slot, true))
   }, PEEK_HIDE_DELAY)
 }
 
@@ -229,7 +272,10 @@ function createFloatingWindow(id: string, route: string, state: PopupInitState) 
   win.on('closed', () => {
     popupWindows.delete(id)
     const info = peekMap.get(win.id)
-    if (info?.hideTimer) clearTimeout(info.hideTimer)
+    if (info) {
+      if (info.hideTimer) clearTimeout(info.hideTimer)
+      releaseSlot(info.edge, win.id)
+    }
     peekMap.delete(win.id)
   })
 }
