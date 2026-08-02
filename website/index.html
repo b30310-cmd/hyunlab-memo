@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HYUNLAB Memo — 업무를 더 편하게 만드는 메모 도구</title>
-    <meta name="description" content="프로젝트별 메모 관리, 팝업 메모, 18종 한글 글꼴, 손그림 주석, 일정 알림까지. Windows 스티커 메모보다 편한 무료 메모앱." />
+    <meta name="description" content="프로젝트별 메모 관리, 팝업 메모, 18종 한글 글꼴, 손그림 주석, 일정 알림까지. 설치 없이 웹에서 바로 쓰거나 앱으로 설치할 수 있는 무료 메모앱." />
     <link rel="icon" href="./icon.svg" />
 
     <!-- 카카오톡·페이스북 등에 링크를 공유할 때 보이는 정보 -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="HYUNLAB Memo — 업무를 더 편하게 만드는 메모 도구" />
-    <meta property="og:description" content="프로젝트별 메모 관리, 팝업 메모, 18종 한글 글꼴, 손그림 주석, 일정 알림까지. 필요한 순간 바로 꺼내 쓰는 메모." />
+    <meta property="og:description" content="프로젝트별 메모 관리, 팝업 메모, 18종 한글 글꼴, 손그림 주석, 일정 알림까지. 필요한 순간 바로 꺼내 쓰는 메모. 웹 앱 설치도 지원합니다." />
     <meta property="og:image" content="./icon.png" />
     <meta name="twitter:card" content="summary" />
     <link
@@ -215,7 +215,7 @@
 
     <!-- 히어로 -->
     <div class="wrap hero">
-      <span class="badge">무료 · 광고 없음 · 오프라인 지원</span>
+      <span class="badge">무료 · 광고 없음 · 오프라인 지원 · 앱으로 설치 가능</span>
       <h1>업무를 더 편하게 만드는<br /><span class="accent">메모 도구</span></h1>
       <p class="tagline">프로젝트별로 정리하고, 팝업으로 띄워두고, 원하는 글꼴로 — 생각나는 순간 바로 기록하세요.</p>
 
@@ -223,16 +223,18 @@
         <!--
           경로 안내
             ./app/       → 웹 버전 (npm run build:site 가 자동으로 넣어줍니다)
+                           브라우저에서 열어 주소창(또는 메뉴)의 "설치" 아이콘을 누르면
+                           PWA로 설치되어 앱처럼 독립된 창으로 실행됩니다.
             #download    → 아래 다운로드 영역으로 이동
         -->
-        <a class="btn btn-primary" href="./app/">웹에서 사용하기</a>
+        <a class="btn btn-primary" href="./app/">웹에서 사용하기 · 앱으로 설치</a>
         <a class="btn btn-secondary" href="#download">⬇ Windows 다운로드</a>
       </div>
 
       <div class="meta">
         <span><span class="stars">★★★★★</span> 5.0</span>
         <span>무료</span>
-        <span>Windows 10/11 지원</span>
+        <span>Windows / Mac / 모바일 앱 설치 지원</span>
       </div>
 
       <!-- 실제 앱 화면 -->
@@ -297,6 +299,7 @@
         <li>프로젝트 기반 관리</li>
         <li>스크래치패드</li>
         <li>팝업 메모</li>
+        <li>모서리 피크</li>
         <li>프로젝트 간 이동</li>
         <li>18종 한글 글꼴</li>
         <li>특수 이모티콘</li>
@@ -306,6 +309,7 @@
         <li>메모 검색</li>
         <li>자동 저장 &amp; 백업</li>
         <li>오프라인 사용 가능</li>
+        <li>앱으로 설치(PWA)</li>
       </ul>
 
       <div class="features">
@@ -325,6 +329,11 @@
           <p>메모를 독립된 작은 창으로 띄워 바탕화면 어디에나 붙여 두세요. 여러 개를 동시에 열고, 항상 위·잠금까지 지원합니다.</p>
         </div>
         <div class="feature">
+          <div class="ico">👉</div>
+          <h3>모서리 피크</h3>
+          <p>평소엔 화면 가장자리에 살짝만 보이게 숨겨 두었다가, 마우스를 올리면 쑥 나타납니다. 원하는 세로 위치로 자유롭게 옮겨 둘 수 있어요.</p>
+        </div>
+        <div class="feature">
           <div class="ico">🔤</div>
           <h3>18종 한글 글꼴</h3>
           <p>업무용·바탕체·손글씨·제목용으로 나눈 글꼴을 검색하고 미리 보고 즐겨찾기에 담으세요. 선택한 글자에만 서식을 적용할 수 있습니다.</p>
@@ -342,7 +351,7 @@
         <div class="feature">
           <div class="ico">🔔</div>
           <h3>일정 알림</h3>
-          <p>날짜와 시간을 정하면 Windows 알림으로 알려드립니다. 매일·매주·매월 반복도 가능합니다.</p>
+          <p>날짜와 시간을 정하면 알림으로 알려드립니다. 팝업으로 띄워 둔 메모는 알림 시각에 색이 바뀌며 눈에 띄고, 매일·매주·매월 반복도 가능합니다.</p>
         </div>
         <div class="feature">
           <div class="ico">✏️</div>
@@ -376,14 +385,25 @@
     <section class="wrap" id="download">
       <div class="download">
         <h2>지금 바로 시작하세요</h2>
-        <p class="sub">설치 없이 웹에서 쓰거나, 프로그램으로 설치해 더 편하게 사용하세요.</p>
+        <p class="sub">설치 없이 웹에서 바로 쓰거나, 앱으로 설치해 더 편하게 사용하세요.</p>
         <div class="cta">
-          <a class="btn btn-primary" href="./app/">웹에서 사용하기</a>
+          <a class="btn btn-primary" href="./app/">웹에서 사용하기 · 앱으로 설치</a>
           <a class="btn btn-secondary" href="./download/HYUNLAB-Memo-Setup.exe" download>
             ⬇ Windows 설치 파일 (.exe)
           </a>
         </div>
-        <p class="os">Windows 10 / 11 (64bit) · 용량 약 80MB · 무료 · 프로젝트 관리 · 팝업 메모 · 18종 글꼴 · 손그림 주석 · 일정 알림 포함</p>
+        <p class="os">Windows 10 / 11 (64bit) · 용량 약 80MB · 무료 · 프로젝트 관리 · 팝업 메모 · 모서리 피크 · 18종 글꼴 · 손그림 주석 · 일정 알림 포함</p>
+
+        <!-- PWA 설치 안내 -->
+        <div class="notice" style="background:var(--card); border-color:var(--line)">
+          <strong>📲 웹 앱으로 설치하기 (Windows·Mac·모바일 모두 가능)</strong>
+          <p>
+            <b>웹에서 사용하기</b>로 들어간 뒤, 주소창 옆 <b>설치</b> 아이콘(또는 앱 안의
+            <b>설치</b> 버튼)을 누르면 독립된 앱 창으로 설치됩니다. 아이폰·안드로이드에서는
+            브라우저의 <b>공유 → 홈 화면에 추가</b>로 설치할 수 있습니다. 별도의 설치 파일
+            없이 한 번의 클릭으로 끝나고, 인터넷 없이도 그대로 사용할 수 있습니다.
+          </p>
+        </div>
 
         <!--
           설치할 때 Windows SmartScreen 경고가 반드시 뜹니다.
