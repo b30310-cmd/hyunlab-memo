@@ -185,7 +185,7 @@ export function SettingsModal() {
         </div>
 
         <div className="border-t border-line px-5 py-3 text-center text-xs text-faint">
-          HYUNLAB Memo v1.1.10 · © HYUNLAB
+          HYUNLAB Memo v1.1.11 · © HYUNLAB
         </div>
       </div>
     </div>

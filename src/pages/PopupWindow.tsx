@@ -3,6 +3,7 @@ import {
   Pin, Lock, Unlock, X, MoreHorizontal,
   Tag as TagIcon, Settings, ChevronsDownUp,
   ChevronsUpDown, Check, ArrowUpToLine, Folder,
+  ArrowLeftToLine, ArrowRightToLine,
 } from 'lucide-react'
 import { useMemoStore } from '@/store/useMemoStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
@@ -104,6 +105,16 @@ export function PopupWindow({ memoId }: { memoId: string }) {
     electron()?.setAlwaysOnTop(next)
   }
 
+  /** 모서리 피크: 켜면 화면 밖으로 살짝만 보이게 숨겼다가, 마우스를 올리면 펼쳐집니다. */
+  const togglePeek = (edge: 'left' | 'right') => {
+    const next = popup.peekEdge === edge ? null : edge
+    // 피크는 다른 창에 가려지면 의미가 없어서, 켜는 동시에 항상 위도 함께 켭니다
+    // (메인 프로세스에서도 강제로 켜지만, "항상 위" 핀 아이콘 표시도 같이 맞춰 줍니다).
+    patchPopup({ peekEdge: next, alwaysOnTop: next ? true : popup.alwaysOnTop })
+    if (next) electron()?.enablePeek(next)
+    else electron()?.disablePeek()
+  }
+
   const changeOpacity = (v: number) => {
     updateDesign(memo.id, { opacity: v })
     electron()?.setOpacity(v)
@@ -124,7 +135,15 @@ export function PopupWindow({ memoId }: { memoId: string }) {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden" style={memoStyle(design, isDark)}>
+    <div
+      className="flex h-screen flex-col overflow-hidden"
+      style={memoStyle(design, isDark)}
+      // 모서리 피크가 켜져 있을 때만 의미가 있습니다. 접힌 채로는 화면에
+      // 살짝 보이는 부분만 마우스가 닿을 수 있으므로, 창 전체에 걸어 둬도
+      // 실제로는 그 좁은 영역에서만 mouseenter가 일어납니다.
+      onMouseEnter={() => { if (popup.peekEdge) electron()?.peekReveal() }}
+      onMouseLeave={() => { if (popup.peekEdge) electron()?.peekCollapse() }}
+    >
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
       <div
         className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"
@@ -213,6 +232,26 @@ export function PopupWindow({ memoId }: { memoId: string }) {
               >
                 {compact ? '일반 모드' : '작게 보기'}
               </MenuItem>
+
+              {isElectron() && (
+                <>
+                  <MenuLabel>모서리 피크 — 평소엔 살짝 숨겼다가 마우스를 올리면 펼침</MenuLabel>
+                  <MenuItem
+                    icon={<ArrowLeftToLine size={ICON.md} />}
+                    trailing={popup.peekEdge === 'left' ? <Check size={ICON.sm} className="text-accent" /> : undefined}
+                    onClick={() => { togglePeek('left'); closeMenu() }}
+                  >
+                    왼쪽 가장자리에 숨기기
+                  </MenuItem>
+                  <MenuItem
+                    icon={<ArrowRightToLine size={ICON.md} />}
+                    trailing={popup.peekEdge === 'right' ? <Check size={ICON.sm} className="text-accent" /> : undefined}
+                    onClick={() => { togglePeek('right'); closeMenu() }}
+                  >
+                    오른쪽 가장자리에 숨기기
+                  </MenuItem>
+                </>
+              )}
 
               {isElectron() && (
                 <>

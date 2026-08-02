@@ -36,6 +36,11 @@ export interface PopupState {
   height: number
   alwaysOnTop: boolean
   locked: boolean
+  /**
+   * 화면 가장자리에 살짝만 보이게 숨겨 두었다가, 마우스를 올리면 전체가
+   * 나오는 "모서리 피크" 모드. null이면 꺼진 상태(일반 창).
+   */
+  peekEdge: 'left' | 'right' | null
 }
 
 /**

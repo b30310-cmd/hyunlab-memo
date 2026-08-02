@@ -22,6 +22,7 @@ export const DEFAULT_POPUP: Memo['popup'] = {
   height: 380,
   alwaysOnTop: true,
   locked: false,
+  peekEdge: null,
 }
 
 /** 새 메모 객체 생성 */

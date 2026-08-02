@@ -16,6 +16,14 @@ export interface ElectronAPI {
   setAlwaysOnTop: (value: boolean) => void
   /** 팝업 창의 투명도 설정 (0.3 ~ 1.0) */
   setOpacity: (value: number) => void
+  /** 모서리 피크 켜기 — 창을 화면 가장자리에 살짝만 보이게 붙입니다 */
+  enablePeek: (edge: 'left' | 'right') => void
+  /** 모서리 피크 끄기 — 원래 크기·위치로 되돌립니다 */
+  disablePeek: () => void
+  /** 마우스가 피크 중인 창 위로 올라왔을 때 — 전체를 펼쳐 보여줍니다 */
+  peekReveal: () => void
+  /** 마우스가 창에서 벗어났을 때 — 잠시 뒤 다시 가장자리로 접습니다 */
+  peekCollapse: () => void
   /** 현재 창 닫기 */
   closeWindow: () => void
   /** Windows 알림 표시 (소리는 항상 끄고 보내며, 소리는 렌더러에서 자체적으로 냅니다) */

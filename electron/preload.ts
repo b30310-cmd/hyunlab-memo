@@ -14,6 +14,7 @@ interface PopupState {
   alwaysOnTop: boolean
   opacity: number
   locked: boolean
+  peekEdge: 'left' | 'right' | null
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -30,6 +31,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /** 현재 창의 투명도 설정 */
   setOpacity: (value: number) => ipcRenderer.send('popup:set-opacity', value),
+
+  /** 모서리 피크 켜기 (edge: 'left' | 'right') — 창을 그 가장자리에 살짝만 보이게 붙입니다 */
+  enablePeek: (edge: 'left' | 'right') => ipcRenderer.send('popup:enable-peek', edge),
+
+  /** 모서리 피크 끄기 — 원래 크기·위치로 되돌립니다 */
+  disablePeek: () => ipcRenderer.send('popup:disable-peek'),
+
+  /** 마우스가 피크 중인 창 위로 올라왔을 때 — 전체를 펼쳐 보여줍니다 */
+  peekReveal: () => ipcRenderer.send('popup:peek-reveal'),
+
+  /** 마우스가 창에서 벗어났을 때 — 잠시 뒤 다시 가장자리로 접습니다 */
+  peekCollapse: () => ipcRenderer.send('popup:peek-collapse'),
 
   /** 현재 창 닫기 */
   closeWindow: () => ipcRenderer.send('window:close'),
