@@ -3,7 +3,7 @@ import { useMemoStore } from '@/store/useMemoStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useAlertStore } from '@/store/useAlertStore'
 import { useScratchStore } from '@/store/useScratchStore'
-import { showNotification, flashWindow } from '@/lib/electron'
+import { showNotification, flashWindow, notifyAlertFired } from '@/lib/electron'
 import { playAlertSound } from '@/lib/sound'
 import { displayTitle, stripHtml } from '@/lib/filter'
 import type { Memo } from '@/types'
@@ -56,6 +56,8 @@ export function useReminders() {
       flashWindow()
       if (useSettingsStore.getState().notifySound) playAlertSound()
       pushAlert(targetId)
+      // 이 메모를 팝업으로 열어 둔 창이 있으면 그 창에서도 표시할 수 있게 알립니다.
+      notifyAlertFired(targetId)
     }
 
     const check = () => {

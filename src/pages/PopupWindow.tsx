@@ -3,9 +3,10 @@ import {
   Pin, Lock, Unlock, X, MoreHorizontal,
   Tag as TagIcon, Settings, ChevronsDownUp,
   ChevronsUpDown, Check, ArrowUpToLine, Folder,
-  ArrowLeftToLine, ArrowRightToLine,
+  ArrowLeftToLine, ArrowRightToLine, Bell,
 } from 'lucide-react'
 import { useMemoStore } from '@/store/useMemoStore'
+import { useAlertStore } from '@/store/useAlertStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { RichTextEditor } from '@/components/common/RichTextEditor'
 import { EditorToolbar } from '@/components/Editor/EditorToolbar'
@@ -41,6 +42,10 @@ export function PopupWindow({ memoId }: { memoId: string }) {
   const { updateMemo, updateDesign, moveMemoToProject } = useMemoStore()
   const projects = useMemoStore((s) => s.projects)
   const isDark = useSettingsStore((s) => s.theme === 'dark')
+  // 이 메모에 걸어 둔 알림이 방금 울렸으면(다른 창의 알림 스케줄러가 알려줌)
+  // 창을 주황색으로 표시해서 눈에 띄게 합니다. 클릭하면 확인 처리됩니다.
+  const myAlert = useAlertStore((s) => s.alerts.find((a) => a.memoId === memoId))
+  const dismissAlert = useAlertStore((s) => s.dismiss)
   const editorRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const existedRef = useRef(false)
@@ -69,6 +74,18 @@ export function PopupWindow({ memoId }: { memoId: string }) {
       const cur = useMemoStore.getState().memos.find((m) => m.id === memoId)
       if (!cur) return
       updateMemo(memoId, { popup: { ...cur.popup, ...bounds } })
+    })
+  }, [memoId, updateMemo])
+
+  // 모서리 피크로 접힌 손잡이를 드래그해 세로 위치를 옮기면, 다음에 다시
+  // 열었을 때도 그 자리에서 시작하도록 기억해 둡니다.
+  useEffect(() => {
+    const api = electron()
+    if (!api) return
+    return api.onPeekYChanged((y) => {
+      const cur = useMemoStore.getState().memos.find((m) => m.id === memoId)
+      if (!cur) return
+      updateMemo(memoId, { popup: { ...cur.popup, peekY: y } })
     })
   }, [memoId, updateMemo])
 
@@ -136,7 +153,7 @@ export function PopupWindow({ memoId }: { memoId: string }) {
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden"
+      className="relative flex h-screen flex-col overflow-hidden"
       style={memoStyle(design, isDark)}
       // 모서리 피크가 켜져 있을 때만 의미가 있습니다. 접힌 채로는 화면에
       // 살짝 보이는 부분만 마우스가 닿을 수 있으므로, 창 전체에 걸어 둬도
@@ -144,6 +161,18 @@ export function PopupWindow({ memoId }: { memoId: string }) {
       onMouseEnter={() => { if (popup.peekEdge) electron()?.peekReveal() }}
       onMouseLeave={() => { if (popup.peekEdge) electron()?.peekCollapse() }}
     >
+      {/* 알림이 방금 울렸으면 창 전체를 주황색으로 표시. 클릭하면 확인 처리됩니다. */}
+      {myAlert && (
+        <button
+          onClick={() => dismissAlert(myAlert.id)}
+          title="알림 시각이 되었습니다 — 클릭하면 확인 처리됩니다"
+          className="animate-pulse absolute inset-0 z-50 flex items-center justify-center gap-2 bg-[#ff8a5c] text-white"
+        >
+          <Bell size={ICON.lg} />
+          <span className="text-sm font-semibold">알림 — 클릭해서 확인</span>
+        </button>
+      )}
+
       {/* ── 상단 바 : 라벨 · 제목 · 항상 위 · 더보기 · 닫기 ── */}
       <div
         className="drag-region flex h-9 shrink-0 items-center gap-0.5 px-1.5"

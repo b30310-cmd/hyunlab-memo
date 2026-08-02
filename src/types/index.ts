@@ -41,6 +41,11 @@ export interface PopupState {
    * 나오는 "모서리 피크" 모드. null이면 꺼진 상태(일반 창).
    */
   peekEdge: 'left' | 'right' | null
+  /**
+   * 피크로 접혔을 때(손잡이) 세로 위치. 사용자가 직접 드래그해서 옮긴
+   * 자리를 기억합니다. null이면 아직 옮긴 적이 없어 자동으로 배치됩니다.
+   */
+  peekY: number | null
 }
 
 /**

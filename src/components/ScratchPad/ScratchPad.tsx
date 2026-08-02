@@ -16,6 +16,7 @@ import { LabelPicker } from '@/components/ui/LabelPicker'
 import { SaveToProjectMenu } from './SaveToProjectMenu'
 import { memoStyle, resolveFont, getLabel } from '@/lib/constants'
 import { stripHtml } from '@/lib/filter'
+import { refocusWindow } from '@/lib/electron'
 
 // ============================================================
 // 스크래치패드 — 프로젝트를 먼저 고민하지 않고 자유롭게 쓰는 임시 작업 공간.
@@ -70,13 +71,20 @@ export function ScratchPad() {
   }
 
   // resetSeq가 바뀌어 RichTextEditor가 새 DOM 노드로 마운트된 다음(=이 effect가
-  // 실행되는 시점) 포커스를 줍니다. confirm() 같은 네이티브 다이얼로그가 뜬
-  // 뒤에는(Windows에서 특히) 창이 OS 차원의 키보드 초점을 실제로 돌려받기까지
-  // 살짝 시간이 걸릴 수 있어서, 곧바로 부른 focus()가 씹힐 수 있습니다. 창이
-  // 실제로 초점을 되찾는 순간(window의 focus 이벤트)에도 한 번 더 걸어 둡니다.
+  // 실행되는 시점) 포커스를 줍니다.
+  //
+  // element.focus()만으로는 안 되는 경우가 실제로 있었습니다: document.
+  // activeElement는 새 입력창을 정확히 가리키는데도 실제 키보드 입력이
+  // 안 들어오고, 다른 창(팝업)을 열었다 닫거나 이 창을 최소화했다 복원해야
+  // 그제서야 입력이 되는 증상이었습니다 — Windows에서 진짜 창 포커스
+  // 전환이 한 번 일어나야 Chromium의 키보드 라우팅 상태가 다시 맞춰지는
+  // 것으로 보입니다. refocusWindow()가 창을 blur() 했다가 곧바로 focus()
+  // 해서 그 "진짜 포커스 전환"을 강제로 한 번 일으켜, 다른 창을 열었다
+  // 닫는 것과 같은 효과를 냅니다.
   useEffect(() => {
     if (resetSeq === 0) return
     editorRef.current?.focus()
+    refocusWindow()
     const refocus = () => editorRef.current?.focus()
     window.addEventListener('focus', refocus, { once: true })
     const t = setTimeout(() => window.removeEventListener('focus', refocus), 500)

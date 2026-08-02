@@ -24,8 +24,12 @@ export interface ElectronAPI {
   peekReveal: () => void
   /** 마우스가 창에서 벗어났을 때 — 잠시 뒤 다시 가장자리로 접습니다 */
   peekCollapse: () => void
+  /** 접힌 손잡이를 드래그해 세로 위치가 바뀌었을 때 알림 구독. 반환값은 구독 해제 함수입니다. */
+  onPeekYChanged: (callback: (y: number) => void) => () => void
   /** 현재 창 닫기 */
   closeWindow: () => void
+  /** 지금 창에 진짜 키보드 포커스를 강제로 다시 줍니다(blur 후 focus) */
+  refocusWindow: () => void
   /** Windows 알림 표시 (소리는 항상 끄고 보내며, 소리는 렌더러에서 자체적으로 냅니다) */
   notify: (title: string, body: string) => void
   /** 작업표시줄 아이콘 깜박이기 (창이 포커스를 받으면 자동으로 멈춥니다) */
@@ -49,6 +53,10 @@ export interface ElectronAPI {
   notifyDataChanged: () => void
   /** 다른 창에서 저장 데이터가 바뀌었다는 알림 구독. 반환값은 구독 해제 함수입니다. */
   onDataChanged: (callback: () => void) => () => void
+  /** 알림(리마인더)이 울렸음을 다른 창들에 알림 (그 메모를 팝업으로 열어 뒀을 수 있으므로) */
+  notifyAlertFired: (memoId: string) => void
+  /** 다른 창에서 알림이 울렸다는 소식 구독. 반환값은 구독 해제 함수입니다. */
+  onAlertFired: (callback: (memoId: string) => void) => () => void
 }
 
 declare global {
@@ -123,9 +131,26 @@ export function flashWindow(): void {
 }
 
 /**
+ * 지금 창에 진짜 키보드 포커스를 강제로 다시 줍니다 (Windows 설치 버전 전용).
+ * DOM의 element.focus()만으로는 실제 키보드 입력이 안 들어오는 경우를 위한
+ * 보정 — 다른 창을 열었다 닫거나 최소화했다 복원하는 것과 같은 효과입니다.
+ */
+export function refocusWindow(): void {
+  electron()?.refocusWindow()
+}
+
+/**
  * 저장 데이터가 바뀌었음을 다른 창들에 알립니다 (Windows 설치 버전 전용).
  * 웹에서는 브라우저의 storage 이벤트가 같은 역할을 대신하므로 아무 일도 하지 않습니다.
  */
 export function notifyDataChanged(): void {
   electron()?.notifyDataChanged()
+}
+
+/**
+ * 알림(리마인더)이 울렸음을 다른 창들에 알립니다 (Windows 설치 버전 전용).
+ * 그 메모를 팝업으로 열어 둔 창이 있으면 눈에 띄게 표시할 수 있게 합니다.
+ */
+export function notifyAlertFired(memoId: string): void {
+  electron()?.notifyAlertFired(memoId)
 }
