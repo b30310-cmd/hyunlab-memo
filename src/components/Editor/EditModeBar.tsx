@@ -1,25 +1,24 @@
-import { Type as TypeIcon, Pencil, Settings2, Palette, Bell, Hash } from 'lucide-react'
+import { Type as TypeIcon, Pencil, Palette, Bell, Hash } from 'lucide-react'
 import type { Memo } from '@/types'
 import { Popover } from '@/components/common/Popover'
-import { Chip } from '@/components/ui/Chip'
 import { TagEditor } from '@/components/ui/TagEditor'
-import { ICON } from '@/components/ui/Button'
+import { IconButton, ICON } from '@/components/ui/Button'
 import { DesignPanel } from './DesignPanel'
 import { ReminderEditor } from './ReminderEditor'
 
 // ============================================================
-// 4단계: 편집 기능 3모드 재구성
-//  이전에는 서식·꾸미기·그리기·알림·태그 5개 칩이 한 줄에 나란히 있었습니다.
-//  지금은 '지금 뭘 하려는지'를 기준으로 3모드로 묶었습니다.
+// 편집 기능 모음
+//  내용 편집·그리기·주석은 모드 전환(눌러야 그 툴바가 나타남)이고,
+//  꾸미기·알림·태그는 지금 상태를 항상 한눈에 볼 수 있어야 해서
+//  아이콘 버튼으로 같은 줄에 항상 노출합니다 (모드 전환 없이 바로 클릭).
 //
-//   내용 편집   — 서식(굵게/색/정렬 등) 툴바
-//   그리기·주석 — 펜/도형 툴바 + 캔버스 활성화
-//   관리       — 꾸미기·알림·태그 (본문 편집과 무관한 설정들)
+//  좁은 팝업 창에서도 줄바꿈으로 글자가 깨지지 않도록 각 버튼은
+//  whitespace-nowrap이며, 그래도 안 들어가면 가로 스크롤됩니다.
 //
 //  메인 에디터·팝업 메모 둘 다 이 컴포넌트를 그대로 씁니다.
 // ============================================================
 
-export type EditMode = 'content' | 'draw' | 'manage'
+export type EditMode = 'content' | 'draw'
 
 interface Props {
   memo: Memo
@@ -35,8 +34,8 @@ export function EditModeBar({ memo, mode, onModeChange, locked, onMemoUpdate }: 
   const toggle = (m: EditMode) => onModeChange(mode === m ? null : m)
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="inline-flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+    <div className="flex items-center gap-0.5 overflow-x-auto">
+      <div className="inline-flex shrink-0 gap-0.5 rounded-md bg-surface-2 p-0.5">
         <ModeTab
           active={mode === 'content'}
           disabled={locked}
@@ -53,38 +52,39 @@ export function EditModeBar({ memo, mode, onModeChange, locked, onMemoUpdate }: 
         >
           <Pencil size={ICON.sm} /> 그리기·주석
         </ModeTab>
-        <ModeTab active={mode === 'manage'} onClick={() => toggle('manage')}>
-          <Settings2 size={ICON.sm} /> 관리
-        </ModeTab>
       </div>
 
-      {mode === 'manage' && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Popover trigger={() => <Chip active={false}><Palette size={ICON.sm} /> 꾸미기</Chip>}>
-            <DesignPanel memoId={memo.id} />
-          </Popover>
+      <div className="h-4 w-px shrink-0 bg-line" />
 
-          <Popover
-            trigger={() => (
-              <Chip active={memo.reminder.enabled}>
-                <Bell size={ICON.sm} /> {memo.reminder.enabled ? '알림 켜짐' : '알림'}
-              </Chip>
-            )}
-          >
-            <ReminderEditor memo={memo} onUpdate={onMemoUpdate} />
-          </Popover>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Popover trigger={() => (
+          <IconButton title="꾸미기" size="sm">
+            <Palette size={ICON.sm} />
+          </IconButton>
+        )}>
+          <DesignPanel memoId={memo.id} />
+        </Popover>
 
-          <Popover
-            trigger={() => (
-              <Chip active={false}>
-                <Hash size={ICON.sm} /> 태그{memo.tags.length ? ` ${memo.tags.length}` : ''}
-              </Chip>
-            )}
-          >
-            <TagEditor memo={memo} onUpdate={onMemoUpdate} />
-          </Popover>
-        </div>
-      )}
+        <Popover
+          trigger={() => (
+            <IconButton title={memo.reminder.enabled ? '알림 켜짐' : '알림'} active={memo.reminder.enabled} size="sm">
+              <Bell size={ICON.sm} />
+            </IconButton>
+          )}
+        >
+          <ReminderEditor memo={memo} onUpdate={onMemoUpdate} />
+        </Popover>
+
+        <Popover
+          trigger={() => (
+            <IconButton title={memo.tags.length ? `태그 ${memo.tags.length}개` : '태그'} active={memo.tags.length > 0} size="sm">
+              <Hash size={ICON.sm} />
+            </IconButton>
+          )}
+        >
+          <TagEditor memo={memo} onUpdate={onMemoUpdate} />
+        </Popover>
+      </div>
     </div>
   )
 }
@@ -103,7 +103,7 @@ function ModeTab({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`flex h-7 items-center gap-1.5 rounded-sm px-3 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm px-2 text-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
         active ? 'bg-surface text-body shadow-sm' : 'text-muted hover:text-body'
       }`}
     >

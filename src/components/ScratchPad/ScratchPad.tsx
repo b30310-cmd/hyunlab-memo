@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Folder, Plus, Tag as TagIcon } from 'lucide-react'
+import { Folder, Plus, Tag as TagIcon, ClipboardCopy, Copy, ChevronLeft } from 'lucide-react'
 import type { Memo } from '@/types'
 import { useScratchStore, MAIN_SCRATCH_ID } from '@/store/useScratchStore'
 import { DEFAULT_POPUP, useMemoStore } from '@/store/useMemoStore'
@@ -11,12 +11,14 @@ import { EditModeBar, type EditMode } from '@/components/Editor/EditModeBar'
 import { DrawingLayer } from '@/components/Drawing/DrawingLayer'
 import { DrawingToolbar } from '@/components/Drawing/DrawingToolbar'
 import { Popover } from '@/components/common/Popover'
-import { Button, IconButton, ICON } from '@/components/ui/Button'
+import { ContextMenu, type ContextMenuState } from '@/components/ui/ContextMenu'
+import { Button, IconButton, MenuItem, MenuLabel, MenuDivider, ICON } from '@/components/ui/Button'
 import { LabelPicker } from '@/components/ui/LabelPicker'
 import { SaveToProjectMenu } from './SaveToProjectMenu'
 import { memoStyle, resolveFont, getLabel } from '@/lib/constants'
 import { stripHtml } from '@/lib/filter'
 import { refocusWindow } from '@/lib/electron'
+import * as ex from '@/lib/exporter'
 
 // ============================================================
 // 스크래치패드 — 프로젝트를 먼저 고민하지 않고 자유롭게 쓰는 임시 작업 공간.
@@ -39,6 +41,8 @@ export function ScratchPad() {
   const isDark = useSettingsStore((s) => s.theme === 'dark')
 
   const [mode, setMode] = useState<EditMode | null>(null)
+  // 본문 영역에서 우클릭하면 복사·프로젝트 저장을 바로 할 수 있는 메뉴가 뜨게 합니다.
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
   // "새 메모"를 누를 때마다 RichTextEditor를 통째로 새로 만들기(remount) 위한 키.
   // 값을 지웠다가 채워 넣는 방식(innerHTML 직접 조작)은 그래도 "지웠다"는 신호가
   // 다음 렌더에 뒤늦게 반영되는 순간이 남아 있어서, 그 짧은 틈에 바로 타이핑하면
@@ -201,7 +205,14 @@ export function ScratchPad() {
       {mode === 'draw' && <DrawingToolbar memoId={MAIN_SCRATCH_ID} />}
 
       {/* ── 본문 ── */}
-      <div ref={surfaceRef} className="relative flex-1 overflow-y-auto px-5 pb-6 pt-2">
+      <div
+        ref={surfaceRef}
+        className="relative flex-1 overflow-y-auto px-5 pb-6 pt-2"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtxMenu({ x: e.clientX, y: e.clientY, targetId: MAIN_SCRATCH_ID })
+        }}
+      >
         <RichTextEditor
           key={`${MAIN_SCRATCH_ID}-${resetSeq}`}
           editorRef={editorRef}
@@ -220,6 +231,59 @@ export function ScratchPad() {
         <span>임시 작업 공간 — 자동 저장됨 (아직 프로젝트에는 등록되지 않았습니다)</span>
         <span>{design.fontSize}px</span>
       </div>
+
+      {/* ── 우클릭 메뉴 : 복사 + 프로젝트에 저장 ── */}
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)}>
+        {(closeMenu) => (
+          <ScratchQuickMenu
+            content={scratch.content}
+            onSaveProject={(projectId) => { saveAs(projectId, true); closeMenu() }}
+          />
+        )}
+      </ContextMenu>
+    </div>
+  )
+}
+
+/** 본문 우클릭 메뉴 — 복사 + 프로젝트에 저장(선택 시 바로 저장) */
+function ScratchQuickMenu({
+  content, onSaveProject,
+}: {
+  content: string
+  onSaveProject: (projectId: string) => void
+}) {
+  const [view, setView] = useState<'menu' | 'project'>('menu')
+
+  if (view === 'project') {
+    return (
+      <div>
+        <button
+          onClick={() => setView('menu')}
+          className="mb-1 flex h-[var(--h-md)] w-full items-center gap-1.5 border-b border-line px-2 text-base font-medium text-body"
+        >
+          <ChevronLeft size={ICON.md} className="text-muted" />
+          프로젝트에 저장
+        </button>
+        <SaveToProjectMenu onSave={onSaveProject} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-52">
+      <MenuLabel>복사</MenuLabel>
+      <MenuItem icon={<ClipboardCopy size={ICON.md} />} onClick={() => ex.copyText(content)}>
+        내용만 복사
+      </MenuItem>
+      <MenuItem icon={<Copy size={ICON.md} />} onClick={() => ex.copyRich(content)}>
+        서식 포함 복사
+      </MenuItem>
+
+      <MenuDivider />
+      <MenuLabel>저장</MenuLabel>
+      <MenuItem icon={<Folder size={ICON.md} />} trailing="›" onClick={() => setView('project')}>
+        프로젝트에 저장
+      </MenuItem>
     </div>
   )
 }

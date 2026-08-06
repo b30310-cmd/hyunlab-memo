@@ -11,6 +11,7 @@ import { Popover } from '@/components/common/Popover'
 import { Button, IconButton, ICON } from '@/components/ui/Button'
 import { LabelPicker } from '@/components/ui/LabelPicker'
 import { ProjectPicker } from '@/components/ui/ProjectPicker'
+import { ContextMenu, type ContextMenuState } from '@/components/ui/ContextMenu'
 import { memoStyle, resolveFont, getLabel } from '@/lib/constants'
 import { openPopupMemo } from '@/lib/electron'
 import { MemoMenu } from './MemoMenu'
@@ -37,6 +38,8 @@ export function Editor({ memo }: { memo: Memo }) {
   const surfaceRef = useRef<HTMLDivElement>(null)
 
   const [mode, setMode] = useState<EditMode | null>(null)
+  // 본문 영역에서 우클릭하면 '더보기'와 같은 관리 메뉴(복사·저장 포함)가 바로 뜨게 합니다.
+  const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null)
 
   const fontFamily = resolveFont(design.font)
   const titleFontFamily = resolveFont(design.titleFont ?? design.font)
@@ -184,7 +187,14 @@ export function Editor({ memo }: { memo: Memo }) {
       {mode === 'draw' && <DrawingToolbar memoId={memo.id} />}
 
       {/* ── 4. 본문 ── */}
-      <div ref={surfaceRef} className="relative flex-1 overflow-y-auto px-5 pb-6 pt-2">
+      <div
+        ref={surfaceRef}
+        className="relative flex-1 overflow-y-auto px-5 pb-6 pt-2"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtxMenu({ x: e.clientX, y: e.clientY, targetId: memo.id })
+        }}
+      >
         <RichTextEditor
           key={memo.id}
           editorRef={editorRef}
@@ -196,6 +206,10 @@ export function Editor({ memo }: { memo: Memo }) {
         />
         <DrawingLayer memoId={memo.id} active={mode === 'draw'} />
       </div>
+
+      <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)}>
+        {(closeMenu) => <MemoMenu memo={memo} surfaceRef={surfaceRef} onDone={closeMenu} />}
+      </ContextMenu>
 
       {/* ── 하단 상태 ── */}
       <div className="flex h-8 shrink-0 items-center justify-between px-5 text-xs text-faint">

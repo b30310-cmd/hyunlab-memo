@@ -16,14 +16,16 @@ import { KaomojiPicker } from '@/components/Editor/KaomojiPicker'
 interface Props {
   x: number
   y: number
+  /** 있으면 새로 찍는 게 아니라 이미 놓인 텍스트를 고쳐 쓰는 것 — 입력창에 미리 채워 둡니다. */
+  initialValue?: string
   onConfirm: (text: string) => void
   onCancel: () => void
 }
 
 const EDGE_PAD = 8
 
-export function TextStampEditor({ x, y, onConfirm, onCancel }: Props) {
-  const [value, setValue] = useState('')
+export function TextStampEditor({ x, y, initialValue, onConfirm, onCancel }: Props) {
+  const [value, setValue] = useState(initialValue ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   // 팝업 메모처럼 작은 창에서도 패널이 화면 밖으로 잘리지 않도록, 실제로

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import {
   Pen, Pencil, Highlighter, Eraser, Minus, MoveUpRight, Square, Circle,
-  Undo2, Redo2, Trash2, XCircle, Eye, EyeOff, ImagePlus, Type,
+  Undo2, Redo2, Trash2, XCircle, Eye, EyeOff, ImagePlus, Type, Move,
 } from 'lucide-react'
 import type { Stroke, ToolType } from '@/types'
 import { useMemoStore } from '@/store/useMemoStore'
@@ -31,7 +31,7 @@ export function DrawingToolbar({ memoId }: { memoId: string }) {
   const setStrokes = useMemoStore((s) => s.setStrokes)
   const setVisible = useMemoStore((s) => s.setDrawingVisible)
   const setBackground = useMemoStore((s) => s.setDrawingBackground)
-  const { tool, color, width, setTool, setColor, setWidth } = useDrawStore()
+  const { tool, color, width, moveMode, setTool, setColor, setWidth, setMoveMode } = useDrawStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [redoStack, setRedoStack] = useState<{ memoId: string; strokes: Stroke[] }>({
@@ -79,6 +79,15 @@ export function DrawingToolbar({ memoId }: { memoId: string }) {
           {t.icon}
         </IconButton>
       ))}
+
+      <IconButton
+        title="이동 — 찍어 넣은 텍스트·이모지나 배경 이미지를 드래그로 옮기고, 텍스트는 클릭하면 다시 편집"
+        size="sm"
+        active={moveMode}
+        onClick={() => setMoveMode(!moveMode)}
+      >
+        <Move size={ICON.md} />
+      </IconButton>
 
       <Divider />
 
