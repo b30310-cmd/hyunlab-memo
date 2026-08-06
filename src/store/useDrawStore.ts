@@ -36,9 +36,16 @@ interface DrawState {
   color: string
   width: number
   alpha: number
+  /**
+   * '이동' 모드 — 켜져 있으면 새로 그리는 대신, 이미 놓인 텍스트·이모지나
+   * 배경 이미지를 드래그로 옮기거나(텍스트는 짧게 클릭하면 다시 편집)
+   * 할 수 있습니다. tool과는 별개의 상태입니다(그리기 도구는 그대로 기억됨).
+   */
+  moveMode: boolean
   setTool: (tool: ToolType) => void
   setColor: (color: string) => void
   setWidth: (width: number) => void
+  setMoveMode: (moveMode: boolean) => void
 }
 
 export const useDrawStore = create<DrawState>((set) => ({
@@ -46,10 +53,13 @@ export const useDrawStore = create<DrawState>((set) => ({
   color: '#ef4444',
   width: TOOL_PRESETS.pen.width,
   alpha: TOOL_PRESETS.pen.alpha,
+  moveMode: false,
 
-  // 도구를 바꾸면 그 도구에 맞는 굵기/투명도로 자동 설정
+  // 도구를 바꾸면 그 도구에 맞는 굵기/투명도로 자동 설정하고, 이동 모드는 끕니다
+  // (그리기로 돌아가려는 것이므로).
   setTool: (tool) =>
-    set({ tool, width: TOOL_PRESETS[tool].width, alpha: TOOL_PRESETS[tool].alpha }),
+    set({ tool, width: TOOL_PRESETS[tool].width, alpha: TOOL_PRESETS[tool].alpha, moveMode: false }),
   setColor: (color) => set({ color }),
   setWidth: (width) => set({ width }),
+  setMoveMode: (moveMode) => set({ moveMode }),
 }))

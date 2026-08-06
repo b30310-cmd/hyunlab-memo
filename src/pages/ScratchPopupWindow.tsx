@@ -3,7 +3,9 @@ import {
   Pin, X, MoreHorizontal, Tag as TagIcon, Settings,
   Folder, ArrowUpToLine, Check, ChevronLeft,
   ArrowLeftToLine, ArrowRightToLine, Bell,
+  ClipboardCopy, Copy,
 } from 'lucide-react'
+import * as ex from '@/lib/exporter'
 import type { Memo } from '@/types'
 import { DEFAULT_POPUP } from '@/store/useMemoStore'
 import { useAlertStore } from '@/store/useAlertStore'
@@ -172,6 +174,7 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
         >
           {(closeMenu) => (
             <ScratchMoreMenu
+              content={scratch.content}
               onSaveProject={(id) => { saveAndClose(id); closeMenu() }}
               onDiscard={() => { removeDraft(draftId); close() }}
               alwaysOnTop={alwaysOnTop}
@@ -212,7 +215,14 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
       {mode === 'draw' && <DrawingToolbar memoId={draftId} />}
 
       {/* ── 본문 ── */}
-      <div ref={surfaceRef} className="no-drag relative flex-1 overflow-y-auto px-3 pb-3">
+      <div
+        ref={surfaceRef}
+        className="no-drag relative flex-1 overflow-y-auto px-3 pb-3"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setCtxMenu({ x: e.clientX, y: e.clientY, targetId: draftId })
+        }}
+      >
         <RichTextEditor
           key={draftId}
           editorRef={editorRef}
@@ -235,6 +245,7 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
       <ContextMenu state={ctxMenu} onClose={() => setCtxMenu(null)}>
         {(closeMenu) => (
           <ScratchMoreMenu
+            content={scratch.content}
             onSaveProject={(id) => { saveAndClose(id); closeMenu() }}
             onDiscard={() => { removeDraft(draftId); close() }}
             alwaysOnTop={alwaysOnTop}
@@ -254,8 +265,9 @@ export function ScratchPopupWindow({ draftId }: { draftId: string }) {
 }
 
 function ScratchMoreMenu({
-  onSaveProject, onDiscard, alwaysOnTop, onToggleAlwaysOnTop, peekEdge, onTogglePeek, onOpenSettings,
+  content, onSaveProject, onDiscard, alwaysOnTop, onToggleAlwaysOnTop, peekEdge, onTogglePeek, onOpenSettings,
 }: {
+  content: string
   onSaveProject: (id: string) => void
   onDiscard: () => void
   alwaysOnTop: boolean
@@ -283,6 +295,15 @@ function ScratchMoreMenu({
 
   return (
     <div className="w-52">
+      <MenuLabel>복사</MenuLabel>
+      <MenuItem icon={<ClipboardCopy size={ICON.md} />} onClick={() => ex.copyText(content)}>
+        내용만 복사
+      </MenuItem>
+      <MenuItem icon={<Copy size={ICON.md} />} onClick={() => ex.copyRich(content)}>
+        서식 포함 복사
+      </MenuItem>
+
+      <MenuDivider />
       <MenuLabel>저장</MenuLabel>
       <MenuItem icon={<Folder size={ICON.md} />} trailing="›" onClick={() => setView('project')}>
         프로젝트에 저장
