@@ -179,7 +179,7 @@ export function ScratchPad() {
         <input
           value={scratch.title}
           onChange={(e) => updateScratch(MAIN_SCRATCH_ID, { title: e.target.value })}
-          placeholder="제목 없음 — 생각나는 대로 자유롭게 써보세요"
+          placeholder="제목 없음"
           className="w-full bg-transparent text-[22px] font-bold leading-snug tracking-tight text-body outline-none placeholder:font-semibold placeholder:text-faint"
           style={{ fontFamily: titleFontFamily }}
         />
