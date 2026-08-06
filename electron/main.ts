@@ -82,13 +82,42 @@ function peekWorkArea(fullBounds: Electron.Rectangle) {
   return screen.getDisplayMatching(fullBounds).workArea
 }
 
+/**
+ * 이 방향(edge)으로 창을 밀어낼 때 실제로 비어 있는(다른 모니터가 없는) 공간이
+ * 얼마나 되는지 계산합니다. 듀얼 모니터에서 그 방향에 다른 모니터가 바로 붙어
+ * 있으면, 그만큼 밀어내도 화면 밖으로 숨겨지는 게 아니라 그 모니터에 그대로
+ * 나타나 버립니다 — 그 모니터의 경계를 넘지 않는 만큼만 밀어내야 합니다.
+ * 겹치는 모니터가 없으면(진짜 화면 밖 공간) 제한 없이(Infinity) 밀 수 있습니다.
+ */
+function maxPushDistance(current: Electron.Rectangle, edge: 'left' | 'right'): number {
+  let maxPush = Infinity
+  for (const display of screen.getAllDisplays()) {
+    const b = display.bounds
+    // 같은 모니터는 건너뜁니다.
+    if (b.x === current.x && b.y === current.y && b.width === current.width && b.height === current.height) continue
+    // 세로로 겹치는 범위가 있어야 "같은 줄"에 있는 이웃 모니터로 봅니다.
+    const verticalOverlap = Math.min(current.y + current.height, b.y + b.height) - Math.max(current.y, b.y)
+    if (verticalOverlap <= 0) continue
+    if (edge === 'left' && b.x + b.width <= current.x) {
+      maxPush = Math.min(maxPush, current.x - (b.x + b.width))
+    }
+    if (edge === 'right' && b.x >= current.x + current.width) {
+      maxPush = Math.min(maxPush, b.x - (current.x + current.width))
+    }
+  }
+  return maxPush
+}
+
 /** 접혔을 때(x는 가장자리 고정, y는 collapsedY) 위치·크기를 계산합니다. */
 function collapsedBounds(info: PeekInfo): Electron.Rectangle {
-  const wa = peekWorkArea(info.fullBounds)
+  const display = screen.getDisplayMatching(info.fullBounds)
+  const wa = display.workArea
   const y = Math.min(Math.max(info.collapsedY, wa.y), wa.y + wa.height - PEEK_COLLAPSED_HEIGHT)
+  const desiredPush = info.fullBounds.width - PEEK_STRIP
+  const push = Math.min(desiredPush, Math.max(maxPushDistance(display.bounds, info.edge), 0))
   const x = info.edge === 'left'
-    ? wa.x - (info.fullBounds.width - PEEK_STRIP)
-    : wa.x + wa.width - PEEK_STRIP
+    ? wa.x - push
+    : wa.x + wa.width - info.fullBounds.width + push
   return { x, y, width: info.fullBounds.width, height: PEEK_COLLAPSED_HEIGHT }
 }
 
