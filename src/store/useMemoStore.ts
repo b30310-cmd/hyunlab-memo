@@ -73,6 +73,7 @@ interface MemoState {
   setStrokes: (memoId: string, strokes: Stroke[]) => void
   setDrawingVisible: (memoId: string, visible: boolean) => void
   setDrawingBackground: (memoId: string, dataUrl: string | undefined) => void
+  setDrawingBackgroundPos: (memoId: string, pos: { x: number; y: number }) => void
 
   // --- 프로젝트 ---
   addProject: (name: string, color?: string) => Project
@@ -241,7 +242,20 @@ export const useMemoStore = create<MemoState>((set, get) => ({
   setDrawingBackground: (memoId, dataUrl) =>
     set((s) => {
       const cur = db.getDrawing(s.drawings, memoId)
-      const drawings = { ...s.drawings, [memoId]: { ...cur, backgroundImage: dataUrl } }
+      // 새로 넣거나 지울 때마다 위치도 함께 초기화합니다 — 이전에 옮겨 둔
+      // 자리를 새 이미지가 이어받으면 오히려 헷갈립니다.
+      const drawings = {
+        ...s.drawings,
+        [memoId]: { ...cur, backgroundImage: dataUrl, backgroundImagePos: undefined },
+      }
+      db.saveDrawings(drawings)
+      return { drawings }
+    }),
+
+  setDrawingBackgroundPos: (memoId, pos) =>
+    set((s) => {
+      const cur = db.getDrawing(s.drawings, memoId)
+      const drawings = { ...s.drawings, [memoId]: { ...cur, backgroundImagePos: pos } }
       db.saveDrawings(drawings)
       return { drawings }
     }),

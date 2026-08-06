@@ -157,6 +157,8 @@ export interface MemoDrawing {
   strokes: Stroke[]
   /** 배경 이미지 (이미지 위 주석용, data URL) */
   backgroundImage?: string
+  /** 배경 이미지 위치(왼쪽 위 기준 오프셋). 없으면 (0,0) — '이동' 도구로 옮길 수 있습니다. */
+  backgroundImagePos?: { x: number; y: number }
 }
 
 export const DEFAULT_DRAWING: MemoDrawing = {

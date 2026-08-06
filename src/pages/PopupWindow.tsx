@@ -383,7 +383,14 @@ export function PopupWindow({ memoId }: { memoId: string }) {
           <p className="mt-3 text-xs text-faint">클릭하면 펼쳐집니다</p>
         </button>
       ) : (
-        <div ref={surfaceRef} className="no-drag relative flex-1 overflow-y-auto px-3 pb-3">
+        <div
+          ref={surfaceRef}
+          className="no-drag relative flex-1 overflow-y-auto px-3 pb-3"
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setCtxMenu({ x: e.clientX, y: e.clientY, targetId: memo.id })
+          }}
+        >
           <RichTextEditor
             key={memo.id}
             editorRef={editorRef}

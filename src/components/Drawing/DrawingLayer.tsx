@@ -27,7 +27,9 @@ export function DrawingLayer({ memoId, active }: Props) {
   const drawing = useMemoStore((s) => s.getDrawing(memoId))
   const addStroke = useMemoStore((s) => s.addStroke)
   const removeStrokes = useMemoStore((s) => s.removeStrokes)
-  const { tool, color, width, alpha } = useDrawStore()
+  const setStrokes = useMemoStore((s) => s.setStrokes)
+  const setDrawingBackgroundPos = useMemoStore((s) => s.setDrawingBackgroundPos)
+  const { tool, color, width, alpha, moveMode } = useDrawStore()
 
   // 펜·연필·형광펜을 고르고 색을 클릭하면, 드래그를 시작하기도 전에
   // 커서 자체가 그 색과 굵기를 미리 보여줘서 "지금부터 이 색으로 그려진다"는
@@ -37,6 +39,15 @@ export function DrawingLayer({ memoId, active }: Props) {
 
   // 그리는 중인 획 (아직 저장 전)
   const draftRef = useRef<Stroke | null>(null)
+  // '이동' 모드에서 지금 드래그 중인 대상(텍스트 또는 배경 이미지) — 저장 전
+  // 화면에만 반영되는 임시 위치입니다. x,y는 그 대상의 왼쪽위 기준 좌표.
+  const dragRef = useRef<
+    | { type: 'text'; id: string; dx: number; dy: number; x: number; y: number }
+    | { type: 'bg'; dx: number; dy: number; x: number; y: number }
+    | null
+  >(null)
+  // 이동 모드에서 클릭(드래그 없이 떼기)인지 구분하기 위한 시작 좌표
+  const downPosRef = useRef<{ x: number; y: number } | null>(null)
   // 드래그 중 캔버스를 다시 그리라고 알리는 카운터. 값 자체를 아래
   // useLayoutEffect의 의존성 배열에 넣어야 매번 다시 실행됩니다 — 예전에는
   // 값은 버리고 상태 변경 함수(setter)만 deps에 넣어서, setter는 리렌더와
@@ -48,7 +59,14 @@ export function DrawingLayer({ memoId, active }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 })
   // '텍스트' 도구로 캔버스를 클릭한 위치. canvas는 획 좌표(캔버스 기준),
   // client는 입력 패널을 화면에 고정 배치하기 위한 뷰포트 기준 좌표입니다.
-  const [textAt, setTextAt] = useState<{ canvas: [number, number]; client: [number, number] } | null>(null)
+  // editId·initialText가 있으면 새로 찍는 게 아니라 '이동' 모드에서 기존
+  // 텍스트를 짧게 클릭해 다시 편집하는 것입니다.
+  const [textAt, setTextAt] = useState<{
+    canvas: [number, number]
+    client: [number, number]
+    editId?: string
+    initialText?: string
+  } | null>(null)
 
   // 부모 크기에 맞춰 캔버스 크기 조정
   useLayoutEffect(() => {
@@ -69,6 +87,15 @@ export function DrawingLayer({ memoId, active }: Props) {
   useEffect(() => {
     if (!active) setTextAt(null)
   }, [active])
+
+  // '이동' 모드를 끄거나 그리기 모드 자체를 벗어나면, 진행 중이던 드래그도
+  // 함께 취소합니다(다른 모드로 넘어간 채 허공에 매달린 드래그가 남지 않도록).
+  useEffect(() => {
+    if (!active || !moveMode) {
+      dragRef.current = null
+      downPosRef.current = null
+    }
+  }, [active, moveMode])
 
   // ---------- 그리기 ----------
   // useLayoutEffect: 마우스를 누른 채 움직이는(드래그) 동안 매번 이 효과가
@@ -91,7 +118,14 @@ export function DrawingLayer({ memoId, active }: Props) {
     ctx.clearRect(0, 0, size.w, size.h)
     if (!drawing.visible) return
 
-    const all = draftRef.current ? [...drawing.strokes, draftRef.current] : drawing.strokes
+    // 이동 모드로 텍스트를 드래그하는 중이면, 저장된 위치 대신 지금 끌고
+    // 있는 임시 위치로 그려서 실시간으로 따라오는 것처럼 보이게 합니다.
+    const drag = dragRef.current
+    const strokes =
+      drag?.type === 'text'
+        ? drawing.strokes.map((s) => (s.id === drag.id ? { ...s, points: [drag.x, drag.y] } : s))
+        : drawing.strokes
+    const all = draftRef.current ? [...strokes, draftRef.current] : strokes
     all.forEach((s) => paintStroke(ctx, s))
   }, [drawing, size, renderTick])
 
@@ -104,6 +138,23 @@ export function DrawingLayer({ memoId, active }: Props) {
   const onDown = (e: React.PointerEvent) => {
     if (!active) return
     const [x, y] = pos(e)
+
+    if (moveMode) {
+      e.currentTarget.setPointerCapture(e.pointerId)
+      downPosRef.current = { x, y }
+      const ctx = canvasRef.current?.getContext('2d')
+      const hit = ctx ? hitTextAt(ctx, drawing.strokes, x, y) : null
+      if (hit) {
+        dragRef.current = { type: 'text', id: hit.id, dx: x - hit.points[0], dy: y - hit.points[1], x: hit.points[0], y: hit.points[1] }
+      } else if (drawing.backgroundImage) {
+        const bg = drawing.backgroundImagePos ?? { x: 0, y: 0 }
+        dragRef.current = { type: 'bg', dx: x - bg.x, dy: y - bg.y, x: bg.x, y: bg.y }
+      } else {
+        dragRef.current = null
+      }
+      forceRender((n) => n + 1)
+      return
+    }
 
     if (tool === 'text') {
       if (!textAt) setTextAt({ canvas: [x, y], client: [e.clientX, e.clientY] })
@@ -131,6 +182,15 @@ export function DrawingLayer({ memoId, active }: Props) {
     if (!active) return
     const [x, y] = pos(e)
 
+    if (moveMode) {
+      const drag = dragRef.current
+      if (!drag) return
+      drag.x = x - drag.dx
+      drag.y = y - drag.dy
+      forceRender((n) => n + 1)
+      return
+    }
+
     if (tool === 'eraser' && e.buttons === 1) {
       eraseAt(x, y)
       return
@@ -147,7 +207,31 @@ export function DrawingLayer({ memoId, active }: Props) {
     forceRender((n) => n + 1)
   }
 
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent) => {
+    if (moveMode) {
+      const drag = dragRef.current
+      dragRef.current = null
+      const down = downPosRef.current
+      downPosRef.current = null
+      if (!drag) return
+
+      const [ux, uy] = pos(e)
+      const moved = down ? Math.hypot(ux - down.x, uy - down.y) > 4 : true
+
+      if (drag.type === 'bg') {
+        setDrawingBackgroundPos(memoId, { x: drag.x, y: drag.y })
+      } else {
+        const target = drawing.strokes.find((s) => s.id === drag.id)
+        setStrokes(memoId, drawing.strokes.map((s) => (s.id === drag.id ? { ...s, points: [drag.x, drag.y] } : s)))
+        // 드래그하지 않고 짧게 클릭만 했다면 옮긴 게 아니라 고쳐 쓰려는 것으로 보고 편집창을 엽니다.
+        if (!moved && target) {
+          setTextAt({ canvas: [drag.x, drag.y], client: [e.clientX, e.clientY], editId: drag.id, initialText: target.text })
+        }
+      }
+      forceRender((n) => n + 1)
+      return
+    }
+
     const d = draftRef.current
     draftRef.current = null
     if (!d) return
@@ -177,18 +261,27 @@ export function DrawingLayer({ memoId, active }: Props) {
       className="pointer-events-none absolute inset-0"
       // 캡처(이미지 내보내기)에는 포함되어야 하므로 data-no-capture를 붙이지 않습니다.
     >
-      {/* 이미지 위 주석용 배경 이미지 (필기보다 아래에 깔립니다) */}
+      {/* 이미지 위 주석용 배경 이미지 (필기보다 아래에 깔립니다). '이동' 모드로
+          드래그하는 중이면 저장된 위치 대신 지금 끌고 있는 자리를 보여줍니다. */}
       {drawing.backgroundImage && drawing.visible && (
         <img
           src={drawing.backgroundImage}
           alt=""
-          className="absolute left-0 top-0 max-w-full select-none"
+          className="absolute max-w-full select-none"
+          style={{
+            left: dragRef.current?.type === 'bg' ? dragRef.current.x : (drawing.backgroundImagePos?.x ?? 0),
+            top: dragRef.current?.type === 'bg' ? dragRef.current.y : (drawing.backgroundImagePos?.y ?? 0),
+          }}
           draggable={false}
         />
       )}
       <canvas
         ref={canvasRef}
-        style={{ width: size.w, height: size.h, cursor: active ? cursor : undefined }}
+        style={{
+          width: size.w,
+          height: size.h,
+          cursor: active ? (moveMode ? (dragRef.current ? 'grabbing' : 'grab') : cursor) : undefined,
+        }}
         className={`absolute left-0 top-0 ${active ? 'pointer-events-auto' : 'pointer-events-none'}`}
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -199,16 +292,21 @@ export function DrawingLayer({ memoId, active }: Props) {
         <TextStampEditor
           x={textAt.client[0]}
           y={textAt.client[1]}
+          initialValue={textAt.initialText}
           onConfirm={(text) => {
-            addStroke(memoId, {
-              id: createId(),
-              tool: 'text',
-              color,
-              width,
-              alpha,
-              points: textAt.canvas,
-              text,
-            })
+            if (textAt.editId) {
+              setStrokes(memoId, drawing.strokes.map((s) => (s.id === textAt.editId ? { ...s, text } : s)))
+            } else {
+              addStroke(memoId, {
+                id: createId(),
+                tool: 'text',
+                color,
+                width,
+                alpha,
+                points: textAt.canvas,
+                text,
+              })
+            }
             setTextAt(null)
           }}
           onCancel={() => setTextAt(null)}
@@ -221,6 +319,29 @@ export function DrawingLayer({ memoId, active }: Props) {
 /** 도형 계열인지 (시작점·끝점만 쓰는 도구) */
 function isShape(tool: Stroke['tool']): boolean {
   return tool === 'line' || tool === 'arrow' || tool === 'rect' || tool === 'circle'
+}
+
+/** 텍스트 획 하나가 화면에서 차지하는 대략적인 사각 영역 (paintStroke와 같은 글꼴 설정 사용) */
+function textBounds(ctx: CanvasRenderingContext2D, s: Stroke): [number, number, number, number] {
+  const fontSize = Math.max(14, s.width * 2)
+  if (!s.text) return [s.points[0], s.points[1], s.points[0], s.points[1] + fontSize]
+  ctx.save()
+  ctx.font = `${fontSize}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`
+  const w = ctx.measureText(s.text).width
+  ctx.restore()
+  return [s.points[0], s.points[1], s.points[0] + w, s.points[1] + fontSize * 1.2]
+}
+
+/** '이동' 모드에서 클릭·드래그 시작 지점에 놓인 텍스트 획을 찾습니다(맨 위에 그려진 것부터). */
+function hitTextAt(ctx: CanvasRenderingContext2D, strokes: Stroke[], x: number, y: number): Stroke | null {
+  const PAD = 4
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    const s = strokes[i]
+    if (s.tool !== 'text' || !s.text) continue
+    const [x0, y0, x1, y1] = textBounds(ctx, s)
+    if (x >= x0 - PAD && x <= x1 + PAD && y >= y0 - PAD && y <= y1 + PAD) return s
+  }
+  return null
 }
 
 /** 펜·연필·형광펜을 고르면 커서 자체를 선택된 색·굵기의 작은 원으로 바꿔서,
