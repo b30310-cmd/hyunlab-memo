@@ -21,6 +21,14 @@ interface Props {
   active: boolean
 }
 
+/** '이동' 모드에서 드래그 중인 대상의 임시(미저장) 위치/크기 상태 */
+type DragState =
+  | { type: 'text'; id: string; dx: number; dy: number; x: number; y: number }
+  | { type: 'bg'; dx: number; dy: number; x: number; y: number }
+  | { type: 'shape-move'; id: string; startX: number; startY: number; origPoints: number[]; dx: number; dy: number }
+  | { type: 'shape-resize'; id: string; handle: 0 | 1; x: number; y: number }
+  | null
+
 export function DrawingLayer({ memoId, active }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -39,13 +47,15 @@ export function DrawingLayer({ memoId, active }: Props) {
 
   // 그리는 중인 획 (아직 저장 전)
   const draftRef = useRef<Stroke | null>(null)
-  // '이동' 모드에서 지금 드래그 중인 대상(텍스트 또는 배경 이미지) — 저장 전
-  // 화면에만 반영되는 임시 위치입니다. x,y는 그 대상의 왼쪽위 기준 좌표.
-  const dragRef = useRef<
-    | { type: 'text'; id: string; dx: number; dy: number; x: number; y: number }
-    | { type: 'bg'; dx: number; dy: number; x: number; y: number }
-    | null
-  >(null)
+  // '이동' 모드에서 지금 드래그 중인 대상 — 저장 전 화면에만 반영되는 임시
+  // 위치/크기입니다.
+  //  text/bg : x,y는 그 대상의 왼쪽위 기준 좌표
+  //  shape-move   : 도형 전체를 옮김 (dx,dy는 시작점 대비 이동량)
+  //  shape-resize : 도형의 손잡이(시작점 0 / 끝점 1) 하나만 옮겨 크기·모양을 바꿈
+  const dragRef = useRef<DragState>(null)
+  // 이동 모드에서 지금 선택된 도형(선/화살표/사각형/원) — 선택하면 양 끝에
+  // 손잡이가 보이고, 손잡이를 드래그하면 크기를 바꿀 수 있습니다.
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
   // 이동 모드에서 클릭(드래그 없이 떼기)인지 구분하기 위한 시작 좌표
   const downPosRef = useRef<{ x: number; y: number } | null>(null)
   // 드래그 중 캔버스를 다시 그리라고 알리는 카운터. 값 자체를 아래
@@ -94,6 +104,7 @@ export function DrawingLayer({ memoId, active }: Props) {
     if (!active || !moveMode) {
       dragRef.current = null
       downPosRef.current = null
+      setSelectedShapeId(null)
     }
   }, [active, moveMode])
 
@@ -118,13 +129,9 @@ export function DrawingLayer({ memoId, active }: Props) {
     ctx.clearRect(0, 0, size.w, size.h)
     if (!drawing.visible) return
 
-    // 이동 모드로 텍스트를 드래그하는 중이면, 저장된 위치 대신 지금 끌고
-    // 있는 임시 위치로 그려서 실시간으로 따라오는 것처럼 보이게 합니다.
-    const drag = dragRef.current
-    const strokes =
-      drag?.type === 'text'
-        ? drawing.strokes.map((s) => (s.id === drag.id ? { ...s, points: [drag.x, drag.y] } : s))
-        : drawing.strokes
+    // 이동 모드로 텍스트·도형을 드래그하는 중이면, 저장된 위치 대신 지금
+    // 끌고 있는 임시 위치/크기로 그려서 실시간으로 따라오는 것처럼 보이게 합니다.
+    const strokes = withDragOverride(drawing.strokes, dragRef.current)
     const all = draftRef.current ? [...strokes, draftRef.current] : strokes
     all.forEach((s) => paintStroke(ctx, s))
   }, [drawing, size, renderTick])
@@ -142,16 +149,61 @@ export function DrawingLayer({ memoId, active }: Props) {
     if (moveMode) {
       e.currentTarget.setPointerCapture(e.pointerId)
       downPosRef.current = { x, y }
+
+      // 0) 이미 선택된 도형의 손잡이(끝점)를 눌렀으면 크기·모양 조절 시작
+      const selected = selectedShapeId ? drawing.strokes.find((s) => s.id === selectedShapeId) : undefined
+      const handle = selected ? hitHandle(selected.points, x, y) : null
+      if (selected && handle !== null) {
+        dragRef.current = {
+          type: 'shape-resize',
+          id: selected.id,
+          handle,
+          x: selected.points[handle === 0 ? 0 : 2],
+          y: selected.points[handle === 0 ? 1 : 3],
+        }
+        forceRender((n) => n + 1)
+        return
+      }
+
+      // 1) 텍스트·이모지 획
       const ctx = canvasRef.current?.getContext('2d')
-      const hit = ctx ? hitTextAt(ctx, drawing.strokes, x, y) : null
-      if (hit) {
-        dragRef.current = { type: 'text', id: hit.id, dx: x - hit.points[0], dy: y - hit.points[1], x: hit.points[0], y: hit.points[1] }
-      } else if (drawing.backgroundImage) {
+      const textHit = ctx ? hitTextAt(ctx, drawing.strokes, x, y) : null
+      if (textHit) {
+        setSelectedShapeId(null)
+        dragRef.current = { type: 'text', id: textHit.id, dx: x - textHit.points[0], dy: y - textHit.points[1], x: textHit.points[0], y: textHit.points[1] }
+        forceRender((n) => n + 1)
+        return
+      }
+
+      // 2) 도형(선·화살표·사각형·원) — 선택하고 통째로 옮기기 시작
+      const shapeHit = hitShapeAt(drawing.strokes, x, y)
+      if (shapeHit) {
+        setSelectedShapeId(shapeHit.id)
+        dragRef.current = {
+          type: 'shape-move',
+          id: shapeHit.id,
+          startX: x,
+          startY: y,
+          origPoints: [shapeHit.points[0], shapeHit.points[1], shapeHit.points[2], shapeHit.points[3]],
+          dx: 0,
+          dy: 0,
+        }
+        forceRender((n) => n + 1)
+        return
+      }
+
+      // 3) 배경 이미지
+      if (drawing.backgroundImage) {
+        setSelectedShapeId(null)
         const bg = drawing.backgroundImagePos ?? { x: 0, y: 0 }
         dragRef.current = { type: 'bg', dx: x - bg.x, dy: y - bg.y, x: bg.x, y: bg.y }
-      } else {
-        dragRef.current = null
+        forceRender((n) => n + 1)
+        return
       }
+
+      // 빈 곳을 클릭 — 선택 해제
+      setSelectedShapeId(null)
+      dragRef.current = null
       forceRender((n) => n + 1)
       return
     }
@@ -185,8 +237,16 @@ export function DrawingLayer({ memoId, active }: Props) {
     if (moveMode) {
       const drag = dragRef.current
       if (!drag) return
-      drag.x = x - drag.dx
-      drag.y = y - drag.dy
+      if (drag.type === 'shape-resize') {
+        drag.x = x
+        drag.y = y
+      } else if (drag.type === 'shape-move') {
+        drag.dx = x - drag.startX
+        drag.dy = y - drag.startY
+      } else {
+        drag.x = x - drag.dx
+        drag.y = y - drag.dy
+      }
       forceRender((n) => n + 1)
       return
     }
@@ -220,6 +280,26 @@ export function DrawingLayer({ memoId, active }: Props) {
 
       if (drag.type === 'bg') {
         setDrawingBackgroundPos(memoId, { x: drag.x, y: drag.y })
+      } else if (drag.type === 'shape-move') {
+        const [ox0, oy0, ox1, oy1] = drag.origPoints
+        const newPoints = [ox0 + drag.dx, oy0 + drag.dy, ox1 + drag.dx, oy1 + drag.dy]
+        setStrokes(memoId, drawing.strokes.map((s) => (s.id === drag.id ? { ...s, points: newPoints } : s)))
+      } else if (drag.type === 'shape-resize') {
+        setStrokes(
+          memoId,
+          drawing.strokes.map((s) => {
+            if (s.id !== drag.id) return s
+            const pts = [...s.points]
+            if (drag.handle === 0) {
+              pts[0] = drag.x
+              pts[1] = drag.y
+            } else {
+              pts[2] = drag.x
+              pts[3] = drag.y
+            }
+            return { ...s, points: pts }
+          }),
+        )
       } else {
         const target = drawing.strokes.find((s) => s.id === drag.id)
         setStrokes(memoId, drawing.strokes.map((s) => (s.id === drag.id ? { ...s, points: [drag.x, drag.y] } : s)))
@@ -255,6 +335,11 @@ export function DrawingLayer({ memoId, active }: Props) {
     if (hit.length) removeStrokes(memoId, hit.map((s) => s.id))
   }
 
+  // 지금 선택된 도형(있으면) — 드래그 중이면 임시(실시간) 위치/크기를 반영합니다.
+  const selectedShape = selectedShapeId
+    ? withDragOverride(drawing.strokes, dragRef.current).find((s) => s.id === selectedShapeId)
+    : undefined
+
   return (
     <div
       ref={wrapRef}
@@ -288,6 +373,20 @@ export function DrawingLayer({ memoId, active }: Props) {
         onPointerUp={onUp}
         onPointerLeave={onUp}
       />
+      {/* 선택된 도형의 크기 조절 손잡이 — 실제 드래그 판정은 캔버스 쪽 좌표
+          계산(hitHandle)이 담당하므로, 여기서는 순수 시각 표시만 합니다. */}
+      {moveMode && selectedShape && (
+        <>
+          <div
+            className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-white shadow-sm"
+            style={{ left: selectedShape.points[0], top: selectedShape.points[1] }}
+          />
+          <div
+            className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-white shadow-sm"
+            style={{ left: selectedShape.points[2], top: selectedShape.points[3] }}
+          />
+        </>
+      )}
       {textAt && (
         <TextStampEditor
           x={textAt.client[0]}
@@ -342,6 +441,77 @@ function hitTextAt(ctx: CanvasRenderingContext2D, strokes: Stroke[], x: number, 
     if (x >= x0 - PAD && x <= x1 + PAD && y >= y0 - PAD && y <= y1 + PAD) return s
   }
   return null
+}
+
+/** 점 (px,py)에서 선분 (x0,y0)-(x1,y1)까지의 최단 거리 */
+function distToSegment(px: number, py: number, x0: number, y0: number, x1: number, y1: number): number {
+  const dx = x1 - x0
+  const dy = y1 - y0
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - x0, py - y0)
+  const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / lenSq))
+  return Math.hypot(px - (x0 + t * dx), py - (y0 + t * dy))
+}
+
+/** '이동' 모드에서 클릭·드래그 시작 지점에 놓인 도형(선·화살표·사각형·원)을 찾습니다. */
+function hitShapeAt(strokes: Stroke[], x: number, y: number): Stroke | null {
+  const PAD = 8
+  for (let i = strokes.length - 1; i >= 0; i--) {
+    const s = strokes[i]
+    if (!isShape(s.tool)) continue
+    const [x0, y0, x1, y1] = s.points
+    if (s.tool === 'line' || s.tool === 'arrow') {
+      if (distToSegment(x, y, x0, y0, x1, y1) <= PAD + s.width / 2) return s
+    } else {
+      // 사각형·원은 경계 상자 안(여유 포함)이면 클릭한 것으로 봅니다.
+      const minX = Math.min(x0, x1) - PAD
+      const maxX = Math.max(x0, x1) + PAD
+      const minY = Math.min(y0, y1) - PAD
+      const maxY = Math.max(y0, y1) + PAD
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY) return s
+    }
+  }
+  return null
+}
+
+/** 선택된 도형의 양 끝 손잡이(0: 시작점, 1: 끝점) 중 클릭 지점에 놓인 것을 찾습니다. */
+function hitHandle(points: number[], x: number, y: number): 0 | 1 | null {
+  const R = 10
+  if (Math.hypot(x - points[0], y - points[1]) <= R) return 0
+  if (Math.hypot(x - points[2], y - points[3]) <= R) return 1
+  return null
+}
+
+/**
+ * '이동' 모드에서 드래그 중인 대상이 있으면, 실제 저장된 값 대신 지금
+ * 화면에 보여야 할 임시 위치/크기로 바꿔서 돌려줍니다(아직 저장 전).
+ */
+function withDragOverride(strokes: Stroke[], drag: DragState): Stroke[] {
+  if (!drag) return strokes
+  if (drag.type === 'text') {
+    return strokes.map((s) => (s.id === drag.id ? { ...s, points: [drag.x, drag.y] } : s))
+  }
+  if (drag.type === 'shape-move') {
+    const [ox0, oy0, ox1, oy1] = drag.origPoints
+    return strokes.map((s) =>
+      s.id === drag.id ? { ...s, points: [ox0 + drag.dx, oy0 + drag.dy, ox1 + drag.dx, oy1 + drag.dy] } : s,
+    )
+  }
+  if (drag.type === 'shape-resize') {
+    return strokes.map((s) => {
+      if (s.id !== drag.id) return s
+      const pts = [...s.points]
+      if (drag.handle === 0) {
+        pts[0] = drag.x
+        pts[1] = drag.y
+      } else {
+        pts[2] = drag.x
+        pts[3] = drag.y
+      }
+      return { ...s, points: pts }
+    })
+  }
+  return strokes // 'bg'는 strokes가 아니라 배경 이미지 자체의 위치라 여기서는 영향 없음
 }
 
 /** 펜·연필·형광펜을 고르면 커서 자체를 선택된 색·굵기의 작은 원으로 바꿔서,
