@@ -81,7 +81,7 @@ export function DrawingToolbar({ memoId }: { memoId: string }) {
       ))}
 
       <IconButton
-        title="이동 — 찍어 넣은 텍스트·이모지나 배경 이미지를 드래그로 옮기고, 텍스트는 클릭하면 다시 편집"
+        title="이동 — 찍어 넣은 텍스트·이모지·도형·배경 이미지를 드래그로 옮기고, 도형은 끝점을 끌어 크기도 바꿀 수 있어요 (텍스트는 클릭하면 다시 편집)"
         size="sm"
         active={moveMode}
         onClick={() => setMoveMode(!moveMode)}
