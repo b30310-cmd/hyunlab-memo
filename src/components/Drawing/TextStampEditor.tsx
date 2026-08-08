@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, X, Smile, Star, Laugh } from 'lucide-react'
+import { Check, X, Smile, Star, Laugh, GripHorizontal } from 'lucide-react'
 import { Popover } from '@/components/common/Popover'
 import { IconButton, ICON } from '@/components/ui/Button'
 import { EmojiPicker } from '@/components/Editor/EmojiPicker'
@@ -11,6 +11,10 @@ import { KaomojiPicker } from '@/components/Editor/KaomojiPicker'
 //  DrawingLayer에서 '텍스트' 도구로 캔버스를 클릭하면 그 자리에 뜹니다.
 //  키보드로 직접 타이핑하거나, 기존 이모지/특수문자/카오모지 선택기에서
 //  골라 커서 위치에 끼워 넣을 수 있습니다.
+//
+//  위쪽 손잡이(::: 아이콘)를 드래그하면 패널을 원하는 곳으로 자유롭게
+//  옮길 수 있습니다 — 처음 뜨는 위치가 클릭 지점을 가리다고 느껴질 때
+//  옆으로 치워 둘 수 있게 한 것입니다.
 // ============================================================
 
 interface Props {
@@ -59,6 +63,29 @@ export function TextStampEditor({ x, y, initialValue, onConfirm, onCancel }: Pro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [x, y])
 
+  // 위쪽 손잡이를 드래그해 패널을 옮길 때 쓰는 상태.
+  const dragRef = useRef<{ startX: number; startY: number; origLeft: number; origTop: number } | null>(null)
+
+  const onDragStart = (e: React.PointerEvent) => {
+    if (!pos) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origLeft: pos.left, origTop: pos.top }
+  }
+
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if (!d) return
+    const w = panelRef.current?.offsetWidth ?? 256
+    const h = panelRef.current?.offsetHeight ?? 96
+    const left = Math.max(EDGE_PAD, Math.min(d.origLeft + (e.clientX - d.startX), window.innerWidth - w - EDGE_PAD))
+    const top = Math.max(EDGE_PAD, Math.min(d.origTop + (e.clientY - d.startY), window.innerHeight - h - EDGE_PAD))
+    setPos({ left, top })
+  }
+
+  const onDragEnd = () => {
+    dragRef.current = null
+  }
+
   const insertAtCursor = (text: string) => {
     const el = inputRef.current
     if (!el) return
@@ -97,6 +124,16 @@ export function TextStampEditor({ x, y, initialValue, onConfirm, onCancel }: Pro
         if (e.key === 'Escape') onCancel()
       }}
     >
+      <div
+        className="-mx-1 -mt-1 flex h-4 shrink-0 cursor-move items-center justify-center rounded-t text-faint hover:text-muted"
+        title="드래그해서 옮기기"
+        onPointerDown={onDragStart}
+        onPointerMove={onDragMove}
+        onPointerUp={onDragEnd}
+        onPointerCancel={onDragEnd}
+      >
+        <GripHorizontal size={ICON.sm} />
+      </div>
       <input
         ref={inputRef}
         value={value}
